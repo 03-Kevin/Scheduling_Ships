@@ -5,13 +5,13 @@ CC = gcc
 CFLAGS = -Wall -g
 
 # Definir los archivos fuente
-SRCS = ready_queue.c main.c monitor.c mutex.c
+SRCS = ready_queue.c main.c main2.c monitor.c mutex.c algorithms.c
 
 # Definir los archivos objeto
-OBJS = exes/ready_queue.o exes/main.o exes/monitor.o exes/mutex.o
+OBJS = exes/ready_queue.o exes/main.o exes/main2.o exes/monitor.o exes/mutex.o exes/algorithms.o
 
 # Definir los ejecutables
-EXECUTABLES = exes/main exes/monitor
+EXECUTABLES = exes/main exes/main2 exes/monitor
 
 # Regla por defecto
 all: $(EXECUTABLES)
@@ -48,6 +48,18 @@ exes/monitor: exes/monitor.o exes/ready_queue.o exes/mutex.o | exes
 clean:
 	rm -f $(OBJS) $(EXECUTABLES)
 	rm -rf exes
+
+# Regla para compilar main2.o
+exes/main2.o: main2.c ready_queue.h algorithms.h mutex.h | exes
+	$(CC) $(CFLAGS) -c main2.c -o exes/main2.o
+
+# Regla para compilar algorithms.o
+exes/algorithms.o: algorithms.c ready_queue.h algorithms.h mutex.h | exes
+	$(CC) $(CFLAGS) -c algorithms.c -o exes/algorithms.o
+
+# Regla para enlazar el ejecutable main2
+exes/main2: exes/main2.o exes/ready_queue.o exes/mutex.o exes/algorithms.o | exes
+	$(CC) $(CFLAGS) -o exes/main2 exes/main2.o exes/ready_queue.o exes/mutex.o exes/algorithms.o
 
 # Regla para mostrar ayuda
 help:
