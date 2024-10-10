@@ -8,6 +8,7 @@
 #include "../ce_mutex/ce_mutex.h"    // Incluir el archivo con las funciones de CEmutex
 
 #define NUM_BARCO 5 // Número de barcos a simular
+#define CANAL_LENGTH 20
 
 CEmutex canal_mutex; // Mutex para controlar el acceso al canal
 
@@ -39,7 +40,7 @@ void dummy_function(void *arg)
 {
     CEthread *barco = (CEthread *)arg; // Convertir el argumento a CEthread*
     usleep(5000);                      // Simular trabajo
-    barco->estado = TERMINADO;         // Cambiar el estado a TERMINADO
+    barco->state = DONE;               // Cambiar el estado a DONE
 }
 
 // Planificador de hilos
@@ -47,20 +48,19 @@ void run_threads(CEthread *threads, int num_threads)
 {
     while (1)
     {
-        int all_finished = 1; // Supón que todos están terminados inicialmente
+        int all_finished = 1; // Supón que todos están DONE inicialmente
 
         for (int i = 0; i < num_threads; i++)
         {
-            if (threads[i].estado == LISTO)
+            if (threads[i].state == READY)
             {
-                all_finished = 0;                      // Al menos un hilo está listo
-                threads[i].estado = EJECUTANDO;        // Cambia el estado a EJECUTANDO
-                threads[i].start_routine(&threads[i]); // Ejecuta la función
-                // No cambiar el estado a TERMINADO aquí, lo hará el hilo
+                all_finished = 0;                        // Al menos un hilo está READY
+                threads[i].state = RUNNING;              // Cambia el estado a RUNNING
+                threads[i].thread_function(&threads[i]); // Ejecuta la función
             }
         }
 
-        // Salir del bucle si todos los hilos han terminado
+        // Salir del bucle si todos los hilos han DONE
         if (all_finished)
         {
             break;
@@ -77,13 +77,15 @@ void test_CEthread_create()
     int arg = 42;
 
     // Crear el barco (hilo)
-    int result = CEthread_create(&barco, dummy_function, &arg);
+    int result = CEthread_create(&barco, OCEANO_IZQ, 1, 10, CANAL_LENGTH, 0, dummy_function, &arg); // Asignar valores a original_side, priority, y speed
 
     assert(result == 0);
     assert(barco.thread_id >= 0);
-    assert(barco.estado == LISTO);
-    assert(barco.start_routine == dummy_function);
+    assert(barco.state == READY);
+    assert(barco.thread_function == dummy_function);
     assert(barco.arg == &arg);
+    assert(barco.burst_time == 2);   // Asegurarse de que burst_time por defecto es 0
+    assert(barco.arrival_time == 0); // Asegurarse de que arrival_time por defecto es 0
 
     printf("Prueba CEthread_create: PASADA\n");
 }
@@ -95,12 +97,12 @@ void test_CEthread_end()
     int arg = 42;
 
     // Crear el barco (hilo)
-    CEthread_create(&barco, dummy_function, &arg);
+    CEthread_create(&barco, OCEANO_IZQ, 1, 10, 0, CANAL_LENGTH, dummy_function, &arg);
 
     CEthread_end(&barco);
 
-    // Verificar que el hilo ha terminado
-    assert(barco.estado == TERMINADO);
+    // Verificar que el hilo ha DONE
+    assert(barco.state == DONE);
 
     printf("Prueba CEthread_end: PASADA\n");
 }
@@ -118,7 +120,7 @@ void test_CEthread_join()
     for (int i = 0; i < NUM_BARCO; i++)
     {
         ids[i] = i + 1;
-        CEthread_create(&barcos[i], dummy_function, &barcos[i]); // Cambiar aquí
+        CEthread_create(&barcos[i], OCEANO_IZQ, 1, 10, CANAL_LENGTH, 0, dummy_function, &barcos[i]); // Pasar valores adicionales
     }
 
     // Ejecutar el planificador
@@ -130,10 +132,10 @@ void test_CEthread_join()
         CEthread_join(&barcos[i]);
     }
 
-    // Verificar que todos los barcos han terminado
+    // Verificar que todos los barcos han DONE
     for (int i = 0; i < NUM_BARCO; i++)
     {
-        assert(barcos[i].estado == TERMINADO);
+        assert(barcos[i].state == DONE);
     }
 
     printf("Prueba CEthread_join: PASADA\n");
@@ -148,7 +150,7 @@ void test_CEthread_join_no_end()
     CEthread barco; // Un solo hilo
 
     // Crear el barco (hilo) que no terminará
-    CEthread_create(&barco, dummy_function_no_end, &barco);
+    CEthread_create(&barco, OCEANO_IZQ, 1, 10, CANAL_LENGTH, 0, dummy_function_no_end, &barco);
 
     // Configurar el handler de la señal
     signal(SIGALRM, timeout_handler);
@@ -158,7 +160,6 @@ void test_CEthread_join_no_end()
     if (sigsetjmp(jump_buffer, 1) == 0)
     {
         CEthread_join(&barco); // Este debería quedarse esperando indefinidamente
-        // Esta línea no debería ejecutarse
         printf("La prueba debería no haber pasado. El hilo no terminó.\n");
     }
     else
@@ -170,7 +171,7 @@ void test_CEthread_join_no_end()
     alarm(0);
 }
 
-// Prueba para los mutexesde lock y unlock
+// Prueba para los mutexes de lock y unlock
 void test_CEmutex()
 {
     CEmutex canal_mutex;
@@ -198,68 +199,86 @@ void incrementar_recurso(void *arg)
     CEthread *barco = (CEthread *)arg; // Convertir el argumento a CEthread*
     for (int i = 0; i < ITERACIONES; i++)
     {
-        // Bloquear el mutex antes de acceder al recurso compartido
         CEmutex_lock(&mutex);
-
-        // Modificar el recurso compartido
         recurso_compartido++;
-
-        // Desbloquear el mutex
         CEmutex_unlock(&mutex);
-
-        // Simular un breve retraso
         usleep(100);
     }
-
-    // Terminar el hilo después de realizar su tarea
-    CEthread_end(barco); // Asegúrate de marcar el hilo como terminado
+    CEthread_end(barco);
 }
 
 // Prueba para verificar el uso de hilos y mutex
 void test_mutex_with_threads()
 {
-    CEthread hilos[NUM_BARCO]; // Arreglo de hilos
-    int ids[NUM_BARCO];        // Arreglo para IDs de hilos
+    CEthread hilos[NUM_BARCO];
+    int ids[NUM_BARCO];
 
-    // Inicializar el mutex
     CEmutex_init(&mutex);
 
-    // Crear varios hilos
     for (int i = 0; i < NUM_BARCO; i++)
     {
-        ids[i] = i;                                                 // Asignar ID a cada hilo
-        CEthread_create(&hilos[i], incrementar_recurso, &hilos[i]); // Cambiar a hilos[i]
+        ids[i] = i;
+        CEthread_create(&hilos[i], OCEANO_IZQ, 1, 10, CANAL_LENGTH, 0, incrementar_recurso, &hilos[i]);
     }
 
-    // Ejecutar el planificador
-    run_threads(hilos, NUM_BARCO); // Esta función debería estar definida como en ejemplos anteriores
+    run_threads(hilos, NUM_BARCO);
 
-    // Unir (esperar) a todos los hilos
     for (int i = 0; i < NUM_BARCO; i++)
     {
         CEthread_join(&hilos[i]);
     }
 
-    // Verificar el resultado final
-    assert(recurso_compartido == NUM_BARCO * ITERACIONES); // Debe ser igual al total de incrementos
+    assert(recurso_compartido == NUM_BARCO * ITERACIONES);
 
     printf("Prueba de hilos con mutex: PASADA\n");
 
-    // Destruir el mutex al final
     CEmutex_destroy(&mutex);
+}
+
+// Prueba para la creación de varios hilos (barcos) con los mismos parámetros
+void test_CEthread_create_batch()
+{
+    int num_barcos = 5;          // Número de hilos a crear
+    CEthread barcos[num_barcos]; // Arreglo de hilos (barcos)
+    int arg = 42;                // Argumento para los hilos
+
+    // Parámetros comunes para todos los barcos
+    int velocidad = 10;    // Velocidad del barco
+    int prioridad = 1;     // Prioridad del barco
+    int lado = OCEANO_IZQ; // Lado de origen (izquierda)
+
+    // Crear varios barcos con los mismos parámetros
+    CEthread_create_batch(barcos, num_barcos, velocidad, CANAL_LENGTH, 0, prioridad, lado, dummy_function, &arg);
+
+    // Verificar que todos los barcos están creados correctamente
+    for (int i = 0; i < num_barcos; i++)
+    {
+        assert(barcos[i].thread_id >= 0);
+        assert(barcos[i].state == READY);
+        assert(barcos[i].thread_function == dummy_function);
+        assert(barcos[i].arg == &arg);
+        assert(barcos[i].speed == velocidad);
+        assert(barcos[i].priority == prioridad);
+        assert(barcos[i].original_side == lado);
+        assert(barcos[i].burst_time == 2);   // Asegurarse que burst_time por defecto es 0
+        assert(barcos[i].arrival_time == 0); // Asegurarse que arrival_time por defecto es 0
+    }
+
+    printf("Prueba CEthread_create_batch: PASADA\n");
 }
 
 // Función principal para ejecutar todas las pruebas
 int main()
 {
-    printf("Ejecutando pruebas de CEthreads...\n");
+    printf("RUNNING pruebas de CEthreads...\n");
 
-    test_CEthread_create();      // Prueba la creación de hilos
-    test_CEthread_end();         // Prueba la finalización de hilos
-    test_CEthread_join();        // Prueba la función join (espera)
-    test_CEthread_join_no_end(); // Prueba la función join (espera)
-    test_CEmutex();              // Prueba para los mutexes
+    test_CEthread_create();
+    test_CEthread_end();
+    test_CEthread_join();
+    test_CEthread_join_no_end();
+    test_CEmutex();
     test_mutex_with_threads();
+    test_CEthread_create_batch();
 
     printf("Todas las pruebas han pasado correctamente.\n");
     return 0;
