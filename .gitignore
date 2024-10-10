@@ -3,3 +3,5 @@
 
 # Ignore files without an extension
 *.
+
+.vscode/
