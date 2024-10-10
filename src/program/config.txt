@@ -1,0 +1,6 @@
+flow_control_method: 1
+length: 10
+queue_quantity: 5
+direction_change_period: 3
+w: 2
+scheduling_method: 1
