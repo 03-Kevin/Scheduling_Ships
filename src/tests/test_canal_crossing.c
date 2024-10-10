@@ -10,7 +10,7 @@
 #define NUM_BARCO 100 // Adjust size for maximum boats
 #define CANAL_LENGTH 100
 
-CEmutex canal_mutex; // Mutex to control access to the canal
+CEmutex test_canal_mutex; // Mutex to control access to the canal
 
 // Boat types with their respective speeds and priorities
 typedef struct
@@ -63,7 +63,7 @@ void cross_channel(void *arg)
     CEthread *barco = (CEthread *)arg;
 
     // Lock the canal mutex before crossing
-    CEmutex_lock(&canal_mutex);
+    CEmutex_lock(&test_canal_mutex);
     printf("Barco %d ha bloqueado el canal. Empieza a cruzar con tiempo estimado: %d segundos.\n", barco->thread_id, barco->burst_time);
 
     // Decrement burst time in a loop until it reaches 0
@@ -77,7 +77,7 @@ void cross_channel(void *arg)
     printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
 
     // Unlock the canal mutex after crossing
-    CEmutex_unlock(&canal_mutex);
+    CEmutex_unlock(&test_canal_mutex);
 }
 
 // Function to create a boat based on key press
@@ -134,7 +134,7 @@ void create_boat(char key)
 void test_cross_channel()
 {
     // Initialize the canal mutex
-    CEmutex_init(&canal_mutex);
+    CEmutex_init(&test_canal_mutex);
 
     // Seed random number generator
     srand(time(NULL));
@@ -171,7 +171,7 @@ void test_cross_channel()
     }
 
     // Destroy the mutex after all threads are done
-    CEmutex_destroy(&canal_mutex);
+    CEmutex_destroy(&test_canal_mutex);
 }
 
 int main()

@@ -10,7 +10,7 @@
 #define NUM_BARCO 5 // Número de barcos a simular
 #define CANAL_LENGTH 20
 
-CEmutex canal_mutex; // Mutex para controlar el acceso al canal
+CEmutex test_threads_canal_mutex; // Mutex para controlar el acceso al canal
 
 #define TIMEOUT 1 // Tiempo en segundos antes de que la prueba falle
 
@@ -114,7 +114,7 @@ void test_CEthread_join()
     int ids[NUM_BARCO];         // Arreglo para IDs de barcos
 
     // Inicializar el mutex
-    CEmutex_init(&canal_mutex);
+    CEmutex_init(&test_threads_canal_mutex);
 
     // Crear varios barcos (hilos)
     for (int i = 0; i < NUM_BARCO; i++)
@@ -141,7 +141,7 @@ void test_CEthread_join()
     printf("Prueba CEthread_join: PASADA\n");
 
     // Destruir el mutex al final
-    CEmutex_destroy(&canal_mutex);
+    CEmutex_destroy(&test_threads_canal_mutex);
 }
 
 // Prueba para verificar que el código no avanza si join se queda esperando
@@ -174,21 +174,21 @@ void test_CEthread_join_no_end()
 // Prueba para los mutexes de lock y unlock
 void test_CEmutex()
 {
-    CEmutex canal_mutex;
+    CEmutex test_threads_canal_mutex;
 
     // Inicializar el mutex
-    CEmutex_init(&canal_mutex);
+    CEmutex_init(&test_threads_canal_mutex);
 
     // Bloquear el mutex
-    CEmutex_lock(&canal_mutex);
-    assert(canal_mutex.locked == 1); // Verificar que el mutex está bloqueado
+    CEmutex_lock(&test_threads_canal_mutex);
+    assert(test_threads_canal_mutex.locked == 1); // Verificar que el mutex está bloqueado
 
     // Desbloquear el mutex
-    CEmutex_unlock(&canal_mutex);
-    assert(canal_mutex.locked == 0); // Verificar que el mutex está desbloqueado
+    CEmutex_unlock(&test_threads_canal_mutex);
+    assert(test_threads_canal_mutex.locked == 0); // Verificar que el mutex está desbloqueado
 
     // Destruir el mutex
-    CEmutex_destroy(&canal_mutex);
+    CEmutex_destroy(&test_threads_canal_mutex);
 
     printf("Prueba CEmutex: PASADA\n");
 }
