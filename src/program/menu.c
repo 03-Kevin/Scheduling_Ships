@@ -1,6 +1,9 @@
 // LIBRARIES
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include "../ce_threads/ce_thread.h"
+#include "boat_manager.h"
 
 // GLOBAL VARIABLES
 int global_normal_left;   // Global variable of number of normal boats in the left-side of the ocean
@@ -22,62 +25,80 @@ typedef struct
     int all_values_present; // Flag to indicate whether all values were successfully read
 } Config;
 
+// Make config a global variable
+Config config; // Declare it here
+
+// Function for obtaining selection from user on the scheduling method
+void main_program()
+{
+    printf("Iniciando prueba del sistema...\n");
+
+    // Run the tests (boats crossing the channel)
+    printf("XXXXXX");
+    start_threads();
+
+    printf("Prueba del sistema finalizada.\n");
+}
+
+// Function for cleaning input buffer
+void clearInputBuffer()
+{
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF)
+        ; // Discard all characters until newline
+}
+
 // Function to load configuration from file
-// I: char filename - filename/path of the file used.
-// O: Config - struct for configuration parameters of the channel
-// R: Only numbers will be taken from the user
 Config loadConfig(const char *filename)
 {
     printf("Welcome to Scheduling Ships V1.0");
-    printf("\nChecking the configutation file\n");
+    printf("\nChecking the configuration file\n");
     FILE *file = fopen(filename, "r");
-    Config config = {-1, -1, -1, -1, -1, -1, 1}; // Initialize with default "missing" values
+    Config loaded_config = {-1, -1, -1, -1, -1, -1, 1}; // Initialize with default "missing" values
 
     if (file == NULL)
     {
         printf("Error: Could not open file %s\n", filename);
-        config.all_values_present = 0;
-        return config;
+        loaded_config.all_values_present = 0;
+        return loaded_config;
     }
 
     char line[100];
     while (fgets(line, sizeof(line), file) != NULL)
     {
         // Parse each line and store the values in the config structure
-        if (sscanf(line, "flow_control_method: %d", &config.flow_control_method) == 1)
+        if (sscanf(line, "flow_control_method: %d", &loaded_config.flow_control_method) == 1)
             continue;
-        if (sscanf(line, "length: %d", &config.length) == 1)
+        if (sscanf(line, "length: %d", &loaded_config.length) == 1)
             continue;
-        if (sscanf(line, "queue_quantity: %d", &config.queue_quantity) == 1)
+        if (sscanf(line, "queue_quantity: %d", &loaded_config.queue_quantity) == 1)
             continue;
-        if (sscanf(line, "direction_change_period: %d", &config.direction_change_period) == 1)
+        if (sscanf(line, "direction_change_period: %d", &loaded_config.direction_change_period) == 1)
             continue;
-        if (sscanf(line, "w: %d", &config.w) == 1)
+        if (sscanf(line, "w: %d", &loaded_config.w) == 1)
             continue;
-        if (sscanf(line, "scheduling_method: %d", &config.scheduling_method) == 1)
+        if (sscanf(line, "scheduling_method: %d", &loaded_config.scheduling_method) == 1)
             continue;
     }
 
     fclose(file);
 
     // Check if any required values are still missing (-1 means missing)
-    if (config.flow_control_method == -1 || config.length == -1 || config.queue_quantity == -1 ||
-        config.direction_change_period == -1 || config.w == -1 || config.scheduling_method == -1)
+    if (loaded_config.flow_control_method == -1 || loaded_config.length == -1 || loaded_config.queue_quantity == -1 ||
+        loaded_config.direction_change_period == -1 || loaded_config.w == -1 || loaded_config.scheduling_method == -1)
     {
-        config.all_values_present = 0;
+        loaded_config.all_values_present = 0;
     }
 
-    return config;
+    return loaded_config;
 }
 
 // Function to check if all config values are present and flag missing ones
-// I: Config - struct for configuration parameters of the channel
-// O: No output
-// R: No letters, only numbers
 void checkMissingValues(Config config)
 {
     if (!config.all_values_present)
     {
+        printf("\n--- --- --- --- --- --- ---\n");
         printf("Warning: Missing configuration values:\n");
         if (config.flow_control_method == -1)
             printf("- flow_control_method is missing\n");
@@ -94,26 +115,75 @@ void checkMissingValues(Config config)
     }
     else
     {
+        initialize_boats(config.queue_quantity);
         printf("All configuration values loaded successfully.\n");
     }
 }
 
-// Function for obtaining selection from user on the scheduling method
-// I: No input
-// O: No output
-// R: Only numbers will be taken from the user
-void main_program()
+// Function for confirming the number of boats
+int confirmBoatCounts()
 {
-    printf("\n--- Loading UI ---\n");
+    char response[10]; // Buffer to store the response
+
+    // Calculate total number of boats
+    int total_boats = global_normal_left + global_fishing_left + global_patrols_left +
+                      global_normal_right + global_fishing_right + global_patrols_right;
+
+    // Check if the total number of boats exceeds the queue quantity
+    if (total_boats > config.queue_quantity) // Use the global config variable
+    {
+        printf("\n--- --- --- --- --- --- ---\n");
+        printf("Warning: Total number of boats (%d) exceeds the queue quantity (%d).\n", total_boats, config.queue_quantity);
+        printf("Please adjust the numbers before proceeding.\n");
+        return 0; // Return 0 indicating the confirmation failed
+    }
+
+    // Display current counts
+    printf("\nCantidad de barcos normales a la izquierda: %d\n", global_normal_left);
+    printf("Cantidad de barcos pesqueros a la izquierda: %d\n", global_fishing_left);
+    printf("Cantidad de barcos patrulleros a la izquierda: %d\n", global_patrols_left);
+    printf("Cantidad de barcos normales a la derecha: %d\n", global_normal_right);
+    printf("Cantidad de barcos pesqueros a la derecha: %d\n", global_fishing_right);
+    printf("Cantidad de barcos patrulleros a la derecha: %d\n", global_patrols_right);
+
+    // Confirmation prompt
+    printf("¿Es correcto?:\n");
+    printf("1. Si\n");
+    printf("2. No\n");
+
+    // Clear input buffer
+    clearInputBuffer();
+
+    // Read the response
+    fgets(response, sizeof(response), stdin);
+    clearInputBuffer(); // Clear the buffer after reading
+
+    // Remove newline character from the response
+    response[strcspn(response, "\n")] = 0;
+
+    // Convert the input to an integer
+    int answer = atoi(response);
+
+    // Handle the user's choice
+    switch (answer)
+    {
+    case 1:
+        return 1; // Confirm the counts (true)
+    case 2:
+        return 0; // Reject the counts (false)
+    default:
+        printf("Opción inválida. Debe ingresar 1 para sí o 2 para no.\n");
+        return confirmBoatCounts(); // Retry for valid input
+    }
 }
 
 // Function for obtaining preset load of boats from user
-// I: No input
-// O: No output
-// R: Only numbers will be taken from the user
 void preset_load()
 {
+    printf("\n--- --- --- --- --- --- ---\n");
     printf("Bienvenido a la configuración inicial de barcos!\n");
+
+    // Ask for boat quantities
     printf("Indique la cantidad de barcos normales que desea de lado izquierdo: ");
     scanf("%d", &global_normal_left);
     printf("Indique la cantidad de barcos pesqueros que desea de lado izquierdo: ");
@@ -122,47 +192,49 @@ void preset_load()
     scanf("%d", &global_patrols_left);
     printf("Indique la cantidad de barcos normales que desea de lado derecho: ");
     scanf("%d", &global_normal_right);
-    printf("Indique la cantidad de barcos patrulleros que desea de lado derecho: ");
+    printf("Indique la cantidad de barcos pesqueros que desea de lado derecho: ");
     scanf("%d", &global_fishing_right);
     printf("Indique la cantidad de barcos patrulleros que desea de lado derecho: ");
-    scanf("%d", &global_fishing_right);
-    main_program();
+    scanf("%d", &global_patrols_right);
+
+    // Confirm the entered values
+    if (confirmBoatCounts())
+    {
+        printf("Valores confirmados.\n");
+
+        // TODO segmentation fault al crear por cargas, tengo que corregirlo
+        // add_boats_from_menu(global_normal_left, global_fishing_left, global_patrols_left,
+        //                     global_normal_right, global_fishing_right, global_patrols_right,
+        //                     CANAL_LENGTH, config.queue_quantity);
+
+        // Proceed to the main program logic
+        main_program();
+    }
+    else
+    {
+        printf("Reingrese la configuración de barcos.\n");
+        preset_load(); // Restart the preset load function to re-enter values
+    }
 }
 
-// Function for cleaning input buffer
-// I: No input
-// O: No output
-// R: No restrictions
-void clearInputBuffer()
-{
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF)
-        ; // Discard all characters until newline
-}
-
-// Function for displaying initial Menu uptions
-// I: No input
-// O: No output
-// R: No restrictions
+// Function for displaying initial Menu options
 void displayMenu()
 {
     printf("\n--- Menu ---\n");
+    printf("¿Desea generar una carga preestablecida?: \n");
     printf("1. Si\n");
     printf("2. No\n");
     printf("3. Salir\n");
-    printf("¿Desea generar una carga preestablecida?: ");
+    printf("\n--- --- --- --- --- --- ---\n");
 }
 
 // Function for obtaining preset load of boats from user
-// I: No input
-// O: 0 of OK
-// R: Restrictions are hanlded separately by each child-function
 int main()
 {
     int choice;
 
     const char *filename = "config.txt"; // Specify your configuration file here
-    Config config = loadConfig(filename);
+    config = loadConfig(filename);       // Load config into the global variable
 
     // Check for missing values
     checkMissingValues(config);
