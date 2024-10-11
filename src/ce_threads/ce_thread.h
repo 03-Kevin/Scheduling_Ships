@@ -39,6 +39,6 @@ void CEthread_join(CEthread *thread);
 void CEthread_execute(CEthread *thread);
 
 // Crea barcos por batch
-void CEthread_create_batch(CEthread *threads, int num_threads, int speed, int canal_length, int arrival_time, int priority, int original_side, void (*thread_function)(void *), void *arg);
+void CEthread_create_batch(CEthread *threads, int base_number, int num_threads, int speed, int canal_length, int arrival_time, int priority, int original_side, void (*thread_function)(void *), void *arg);
 
 #endif

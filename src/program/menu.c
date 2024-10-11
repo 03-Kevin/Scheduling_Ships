@@ -34,7 +34,6 @@ void main_program()
     printf("Iniciando prueba del sistema...\n");
 
     // Run the tests (boats crossing the channel)
-    printf("XXXXXX");
     start_threads();
 
     printf("Prueba del sistema finalizada.\n");
@@ -203,9 +202,9 @@ void preset_load()
         printf("Valores confirmados.\n");
 
         // TODO segmentation fault al crear por cargas, tengo que corregirlo
-        // add_boats_from_menu(global_normal_left, global_fishing_left, global_patrols_left,
-        //                     global_normal_right, global_fishing_right, global_patrols_right,
-        //                     CANAL_LENGTH, config.queue_quantity);
+        add_boats_from_menu(global_normal_left, global_fishing_left, global_patrols_left,
+                            global_normal_right, global_fishing_right, global_patrols_right,
+                            CANAL_LENGTH, config.queue_quantity);
 
         // Proceed to the main program logic
         main_program();

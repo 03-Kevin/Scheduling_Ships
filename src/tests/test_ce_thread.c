@@ -238,9 +238,9 @@ void test_mutex_with_threads()
 // Prueba para la creación de varios hilos (barcos) con los mismos parámetros
 void test_CEthread_create_batch()
 {
-    int num_barcos = 5;          // Número de hilos a crear
-    CEthread barcos[num_barcos]; // Arreglo de hilos (barcos)
-    int arg = 42;                // Argumento para los hilos
+    int num_barcos = 5;      // Número de hilos a crear
+    CEthread *barcos = NULL; // Arreglo de hilos (barcos)
+    barcos = malloc(5 * sizeof(CEthread));
 
     // Parámetros comunes para todos los barcos
     int velocidad = 10;    // Velocidad del barco
@@ -248,15 +248,31 @@ void test_CEthread_create_batch()
     int lado = OCEANO_IZQ; // Lado de origen (izquierda)
 
     // Crear varios barcos con los mismos parámetros
-    CEthread_create_batch(barcos, num_barcos, velocidad, CANAL_LENGTH, 0, prioridad, lado, dummy_function, &arg);
+    CEthread_create_batch(barcos, 0, num_barcos, velocidad, CANAL_LENGTH, 0, prioridad, lado, dummy_function, NULL);
 
     // Verificar que todos los barcos están creados correctamente
-    for (int i = 0; i < num_barcos; i++)
+    for (int i = 0; i < 5; i++)
     {
         assert(barcos[i].thread_id >= 0);
         assert(barcos[i].state == READY);
         assert(barcos[i].thread_function == dummy_function);
-        assert(barcos[i].arg == &arg);
+        assert(barcos[i].arg == NULL);
+        assert(barcos[i].speed == velocidad);
+        assert(barcos[i].priority == prioridad);
+        assert(barcos[i].original_side == lado);
+        assert(barcos[i].burst_time == 2);   // Asegurarse que burst_time por defecto es 0
+        assert(barcos[i].arrival_time == 0); // Asegurarse que arrival_time por defecto es 0
+    }
+    // Crear varios barcos con los mismos parámetros
+    CEthread_create_batch(barcos, 5, 10, velocidad, CANAL_LENGTH, 0, prioridad, lado, dummy_function, NULL);
+
+    // Verificar que todos los barcos están creados correctamente
+    for (int i = 5; i < 10; i++)
+    {
+        assert(barcos[i].thread_id >= 0);
+        assert(barcos[i].state == READY);
+        assert(barcos[i].thread_function == dummy_function);
+        assert(barcos[i].arg == NULL);
         assert(barcos[i].speed == velocidad);
         assert(barcos[i].priority == prioridad);
         assert(barcos[i].original_side == lado);

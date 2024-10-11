@@ -51,9 +51,11 @@ int CEthread_create(CEthread *thread, int original_side, int priority, int speed
 
 void CEthread_execute(CEthread *thread)
 {
+
     if (thread->state == READY)
     {
-        thread->state = RUNNING;              // Set the state to RUNNING
+        thread->state = RUNNING; // Set the state to RUNNING
+        printf("Running ID %d\n", thread->thread_id);
         thread->thread_function(thread->arg); // Execute the thread function
         thread->state = DONE;                 // Set the state to DONE after execution
     }
@@ -101,11 +103,12 @@ void CEthread_join(CEthread *thread)
  * @param thread_function Función que ejecutarán todos los hilos (barcos).
  * @param arg Argumento que se pasará a la función de cada hilo.
  */
-void CEthread_create_batch(CEthread *threads, int num_threads, int speed, int canal_length, int arrival_time, int priority, int original_side, void (*thread_function)(void *), void *arg)
+void CEthread_create_batch(CEthread *threads, int base_number, int num_threads, int speed, int canal_length, int arrival_time, int priority, int original_side, void (*thread_function)(void *), void *arg)
 {
-    for (int i = 0; i < num_threads; i++)
+    printf("Creating boats from %d to %d.\n", base_number, num_threads);
+    for (int i = base_number; i < num_threads; i++)
     {
         // Crear cada hilo (barco) con los mismos parámetros
-        CEthread_create(&threads[i], original_side, priority, speed, canal_length, arrival_time, thread_function, arg);
+        CEthread_create(&threads[i], original_side, priority, speed, canal_length, arrival_time, thread_function, &threads[i]);
     }
 }
