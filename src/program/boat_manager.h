@@ -7,9 +7,6 @@
 #include "../ce_threads/ce_thread.h" // Include CEthread functions
 #include "../ce_mutex/ce_mutex.h"    // Include CEmutex functions
 
-// Maximum number of boats
-#define CANAL_LENGTH 100
-
 // Boat types with their respective speeds and priorities
 typedef struct
 {
@@ -22,6 +19,7 @@ extern BoatType boat_types[];
 // Global variables for the boats
 extern int boat_count;      // Current number of boats
 extern CEmutex canal_mutex; // Mutex to control access to the canal
+extern int canal_length;
 
 // Function declarations
 void initialize_boats(int queue_quantity); // To initialize boats array

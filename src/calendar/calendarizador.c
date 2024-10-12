@@ -1,23 +1,23 @@
 /**
  * @file calendarizador.c
  * @author Kevin (kjrodriguez@estudiantec.cr)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2024-10-12
- * 
+ *
  * @copyright Copyright (c) 2024
- * 
+ *
  */
 
 #include "calendarizador.h"
 
-ReadyQueue *queue = NULL;  // Cola global
-int scheduling_type = 0;   // Tipo de calendarización global
+ReadyQueue *queue = NULL; // Global queue
+int scheduling_type = 0;  // Global scheduling type
 
 /**
  * @brief Create a ready queue object
- * 
- * @return ReadyQueue* 
+ *
+ * @return ReadyQueue*
  */
 ReadyQueue *create_ready_queue()
 {
@@ -26,15 +26,17 @@ ReadyQueue *create_ready_queue()
     queue->count = 0;
     return queue;
 }
+
 /**
- * @brief enqueue_thread: agregar un hilo a la cola de listos, además de actualizar la cola automáticamente.
- * 
- * @param thread 
+ * @brief enqueue_thread: add a thread to the ready queue and update the queue automatically.
+ *
+ * @param thread
  */
-void enqueue_thread(CEthread thread)
+void enqueue_thread(CEthread *thread) // Use a pointer to CEthread
 {
+
     ReadyQueueNode *new_node = (ReadyQueueNode *)malloc(sizeof(ReadyQueueNode));
-    new_node->thread = thread;
+    new_node->thread = thread; // Store the pointer
     new_node->next = NULL;
 
     if (queue->head == NULL)
@@ -52,35 +54,37 @@ void enqueue_thread(CEthread thread)
     }
     queue->count++;
 
-    // Actualizar cola automáticamente
+    // Update the queue automatically
     update_ready_queue();
 }
+
 /**
- * @brief dequeue_thread: extraer un hilo de la cola de listos. Siempre se extrae el primer hilo de la cola. 
- * Lo extrae, es decir, lo elimina de la cola de listos.
- * 
- * @return CEthread 
+ * @brief dequeue_thread: extract a thread from the ready queue. Always extracts the first thread in the queue.
+ * It removes it from the ready queue.
+ *
+ * @return CEthread*
  */
-CEthread dequeue_thread()
+CEthread *dequeue_thread() // Return a pointer to CEthread
 {
     if (queue->head == NULL)
     {
-        return (CEthread){0}; // Cola vacía
+        return NULL; // Queue is empty
     }
 
     ReadyQueueNode *temp = queue->head;
-    CEthread thread = temp->thread;
+    CEthread *thread = temp->thread; // Get the pointer to the thread
     queue->head = queue->head->next;
     queue->count--;
     free(temp);
 
-    return thread;
+    return thread; // Return the pointer to the thread
 }
+
 /**
- * @brief remove_thread_at: eliminar un hilo de la cola de listos en una posición específica.
- * es diferente a dequeue_thread, ya que esta función elimina un hilo en una posición específica.
- * 
- * @param position 
+ * @brief remove_thread_at: remove a thread from the ready queue at a specific position.
+ * This is different from dequeue_thread, as this function removes a thread at a specific position.
+ *
+ * @param position
  */
 void remove_thread_at(int position)
 {
@@ -116,9 +120,10 @@ void remove_thread_at(int position)
 
     queue->count--;
 }
+
 /**
- * @brief update_ready_queue: actualiza la cola de listos según el tipo de calendarización.
- * 
+ * @brief update_ready_queue: updates the ready queue according to the scheduling type.
+ *
  */
 void update_ready_queue()
 {
@@ -137,9 +142,10 @@ void update_ready_queue()
         break;
     }
 }
+
 /**
- * @brief print_ready_queue: imprime la cola de listos.
- * 
+ * @brief print_ready_queue: prints the ready queue.
+ *
  */
 void print_ready_queue()
 {
@@ -154,16 +160,16 @@ void print_ready_queue()
     while (temp != NULL)
     {
         printf("Hilo ID: %d, Prioridad: %d, Tiempo de ráfaga: %d, Tiempo de llegada: %d\n",
-               temp->thread.thread_id, temp->thread.priority, temp->thread.burst_time, temp->thread.arrival_time);
+               temp->thread->thread_id, temp->thread->priority, temp->thread->burst_time, temp->thread->arrival_time); // Use pointer dereference
         temp = temp->next;
     }
     printf("\n");
 }
 
 /**
- * @brief sort_by_priority: ordena la cola de listos por prioridad.La prioridad más baja se coloca al principio de la cola.
- * el número más bajo es la prioridad más alta.
- * 
+ * @brief sort_by_priority: sorts the ready queue by priority. The lowest priority is placed at the front of the queue.
+ * The lower number is the highest priority.
+ *
  */
 void sort_by_priority()
 {
@@ -176,19 +182,20 @@ void sort_by_priority()
     {
         for (ReadyQueueNode *j = i->next; j != NULL; j = j->next)
         {
-            if (i->thread.priority > j->thread.priority)
+            if (i->thread->priority > j->thread->priority) // Use pointer dereference
             {
-                CEthread temp = i->thread;
+                CEthread *temp = i->thread; // Use pointers
                 i->thread = j->thread;
                 j->thread = temp;
             }
         }
     }
 }
+
 /**
- * @brief sort_by_sjf: ordena la cola de listos por el tiempo de ráfaga.
- * Es decir el burst time. El hilo con el tiempo de ráfaga más corto se coloca al principio de la cola.
- * 
+ * @brief sort_by_sjf: sorts the ready queue by burst time.
+ * That is, the burst time. The thread with the shortest burst time is placed at the front of the queue.
+ *
  */
 void sort_by_sjf()
 {
@@ -201,17 +208,18 @@ void sort_by_sjf()
     {
         for (ReadyQueueNode *j = i->next; j != NULL; j = j->next)
         {
-            if (i->thread.burst_time > j->thread.burst_time)
+            if (i->thread->burst_time > j->thread->burst_time) // Use pointer dereference
             {
-                CEthread temp = i->thread;
+                CEthread *temp = i->thread; // Use pointers
                 i->thread = j->thread;
                 j->thread = temp;
             }
         }
     }
 }
-/** 
- * @brief sort_by_fcfs: ordena la cola de listos por el tiempo de llegada.
+
+/**
+ * @brief sort_by_fcfs: sorts the ready queue by arrival time.
  */
 void sort_by_fcfs()
 {
@@ -224,18 +232,19 @@ void sort_by_fcfs()
     {
         for (ReadyQueueNode *j = i->next; j != NULL; j = j->next)
         {
-            if (i->thread.arrival_time > j->thread.arrival_time)
+            if (i->thread->arrival_time > j->thread->arrival_time) // Use pointer dereference
             {
-                CEthread temp = i->thread;
+                CEthread *temp = i->thread; // Use pointers
                 i->thread = j->thread;
                 j->thread = temp;
             }
         }
     }
 }
+
 /**
- * @brief calendar: función de calendarización que selecciona el algoritmo de calendarización a utilizar.
- * 
+ * @brief calendar: scheduling function that selects the scheduling algorithm to use.
+ *
  */
 void calendar()
 {

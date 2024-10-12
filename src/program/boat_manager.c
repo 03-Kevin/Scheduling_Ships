@@ -7,10 +7,12 @@
 #include <fcntl.h>
 #include "boat_manager.h" // Include the boat manager header
 #include "../ce_threads/ce_thread.h"
+#include "../calendar/calendarizador.h"
 
 // Global variables
 int boat_count = 0;    // Current number of boats
 int boat_quantity = 0; // Maximum number of boats
+int canal_length = 0;  // Default initialization
 CEthread *boat_queue = NULL;
 
 // Boat types with their respective speeds and priorities
@@ -25,6 +27,7 @@ CEmutex canal_mutex; // Mutex para controlar el acceso al canal
 // Function to initialize the boat list with queue_quantity size
 void initialize_boats(int queue_quantity)
 {
+    create_ready_queue();
     // Set the global boat quantity
     boat_quantity = queue_quantity;
 
@@ -40,6 +43,7 @@ void initialize_boats(int queue_quantity)
 }
 
 // Cross channel function: locks the canal mutex and starts the crossing
+// case de 3 casos: 1. no apropiativo - 2. rr - 3. tiempo real (revisar primero de la lista)
 void cross_channel(void *arg)
 {
     CEthread *barco = (CEthread *)arg;
@@ -158,6 +162,7 @@ int kbhit(void)
 }
 
 // Function to create a boat based on key press
+
 void create_boat(char key, int queue_quantity)
 {
     if (boat_count >= queue_quantity)
@@ -197,10 +202,10 @@ void create_boat(char key, int queue_quantity)
     }
 
     // Set the burst time based on the selected speed
-    int burst_time = CANAL_LENGTH / selected_boat.speed; // Example burst time calculation
+    int burst_time = canal_length / selected_boat.speed; // Example burst time calculation
 
     // Create the thread/boat with the selected speed and priority
-    CEthread_create(&boat_queue[boat_count], original_side, selected_boat.priority, selected_boat.speed, CANAL_LENGTH, 0, cross_channel, &boat_queue[boat_count]);
+    CEthread_create(&boat_queue[boat_count], original_side, selected_boat.priority, selected_boat.speed, canal_length, 0, cross_channel, &boat_queue[boat_count]);
     boat_count++;
 
     printf("Creado barco %d: velocidad=%d, prioridad=%d, lado=%d\n", boat_count, selected_boat.speed, selected_boat.priority, original_side);
@@ -219,56 +224,43 @@ void cleanup_boats()
 // Main program loop that handles the test
 void start_threads()
 {
-    printf("Adentro de start_threads()...\n");
-    // Initialize the canal mutex
-    CEmutex_init(&canal_mutex);
-    printf("Adentro de start_threads()...2\n");
     // Seed random number generator
     srand(time(NULL));
-    printf("Adentro de start_threads()...3\n");
-    // Main loop to continuously check for key presses and run boats
+
     while (1)
     {
-        // Check for key presses
+        // Check for key presses to add new boats
         int key = kbhit();
         if (key)
         {
             create_boat(key, boat_quantity);
         }
-        // Run all the boats sequentially
-        for (int i = 0; i < boat_count; i++)
-        {
 
-            if (boat_queue[i].state != DONE)
+        // Process boats from the queue if available
+        while (queue->count > 0)
+        {
+            print_ready_queue();
+            // Dequeue and execute the first thread
+            CEthread *thread = dequeue_thread(); // Dequeue the first thread
+            if (thread != NULL)
+            {                             // Check if the thread is valid
+                CEthread_execute(thread); // Execute the thread
+
+                CEthread_end(thread);
+            }
+
+            // Allow some time for new boats to be added
+            usleep(100000); // 100 milliseconds
+
+            // Check for key presses again after executing a thread
+            key = kbhit();
+            if (key)
             {
-                printf("-----");
-                printf("Adentro de start_threads()...while %d\n", i);
-                printf("Thread ID: %d\n"
-                       "State: %d\n"
-                       "Original Side: %d\n"
-                       "Priority: %d\n"
-                       "Speed: %d\n"
-                       "Burst Time: %d\n"
-                       "Arrival Time: %d\n"
-                       "Argument Pointer: %p\n",
-                       boat_queue[i].thread_id,
-                       boat_queue[i].state,
-                       boat_queue[i].original_side,
-                       boat_queue[i].priority,
-                       boat_queue[i].speed,
-                       boat_queue[i].burst_time,
-                       boat_queue[i].arrival_time,
-                       boat_queue[i].arg); // Pointer to the argument
-                printf("-----");
-                CEthread_execute(&boat_queue[i]);
-                // CEthread_join(&boat_queue[i]);
+                create_boat(key, boat_quantity);
             }
         }
 
-        // Allow some time to process other events
+        // Allow some time to process other events before checking the queue again
         usleep(100000); // 100 milliseconds
     }
-
-    // Destroy the mutex after all threads are done
-    CEmutex_destroy(&canal_mutex);
 }

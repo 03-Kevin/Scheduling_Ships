@@ -4,6 +4,7 @@
 #include <string.h>
 #include "../ce_threads/ce_thread.h"
 #include "boat_manager.h"
+#include "../calendar/calendarizador.h"
 
 // GLOBAL VARIABLES
 int global_normal_left;   // Global variable of number of normal boats in the left-side of the ocean
@@ -201,10 +202,9 @@ void preset_load()
     {
         printf("Valores confirmados.\n");
 
-        // TODO segmentation fault al crear por cargas, tengo que corregirlo
-        add_boats_from_menu(global_normal_left, global_fishing_left, global_patrols_left,
+                add_boats_from_menu(global_normal_left, global_fishing_left, global_patrols_left,
                             global_normal_right, global_fishing_right, global_patrols_right,
-                            CANAL_LENGTH, config.queue_quantity);
+                            canal_length, config.queue_quantity);
 
         // Proceed to the main program logic
         main_program();
@@ -249,6 +249,8 @@ int main()
         printf("Direction Change Period: %d\n", config.direction_change_period);
         printf("W: %d\n", config.w);
         printf("Scheduling Method: %d\n", config.scheduling_method);
+        scheduling_type = config.scheduling_method;
+        canal_length = config.length;
     }
     else
     {
