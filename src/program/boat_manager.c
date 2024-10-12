@@ -17,7 +17,7 @@ CEthread *boat_queue = NULL;
 
 // Boat types with their respective speeds and priorities
 BoatType boat_types[] = {
-    {10, 3}, // Normal: speed 10, priority 3
+    {10, 2}, // Normal: speed 10, priority 2
     {20, 2}, // Pesquero: speed 20, priority 2
     {25, 1}  // Patrulla: speed 25, priority 1
 };
@@ -89,7 +89,7 @@ void add_boats_from_menu(int normal_left, int fishing_left, int patrol_left,
     // Create boats for the left side
     if (normal_left > 0)
     {
-        CEthread_create_batch(boat_queue, boat_count, normal_left, 10, canal_length, 0, 3, OCEANO_IZQ, cross_channel, NULL);
+        CEthread_create_batch(boat_queue, boat_count, normal_left, 10, canal_length, 0, 2, OCEANO_IZQ, cross_channel, NULL);
         boat_count += normal_left;
         printf("BOAT COUNT AFTER NORMAL LEFT: %d.\n", boat_count);
     }
@@ -111,7 +111,7 @@ void add_boats_from_menu(int normal_left, int fishing_left, int patrol_left,
     // Create boats for the right side
     if (normal_right > 0)
     {
-        CEthread_create_batch(boat_queue, boat_count, normal_right + boat_count, 10, canal_length, 0, 3, OCEANO_DER, cross_channel, NULL);
+        CEthread_create_batch(boat_queue, boat_count, normal_right + boat_count, 10, canal_length, 0, 2, OCEANO_DER, cross_channel, NULL);
         boat_count += normal_right;
         printf("BOAT COUNT AFTER NORMAL LEFT: %d.\n", boat_count);
     }
