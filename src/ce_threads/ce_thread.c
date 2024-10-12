@@ -9,6 +9,7 @@
  */
 
 #include "ce_thread.h"
+#include "../calendar/calendarizador.h"
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -33,7 +34,7 @@ int CEthread_create(CEthread *thread, int original_side, int priority, int speed
     thread->original_side = original_side;
     thread->speed = speed;
     thread->priority = priority;
-    thread->arrival_time = arrival_time;
+    thread->arrival_time = thread->thread_id;
     // Calcular el tiempo de cruce en milisegundos
     thread->burst_time = canal_length / speed;
 
@@ -44,7 +45,7 @@ int CEthread_create(CEthread *thread, int original_side, int priority, int speed
     // Inicializa el state del hilo como READY
     thread->state = READY;
 
-    // TODO Aqui es donde supongo se agregarían a la cola que trabaja kevin
+    enqueue_thread(thread);
 
     return 0;
 }
@@ -57,7 +58,6 @@ void CEthread_execute(CEthread *thread)
         thread->state = RUNNING; // Set the state to RUNNING
         printf("Running ID %d\n", thread->thread_id);
         thread->thread_function(thread->arg); // Execute the thread function
-        thread->state = DONE;                 // Set the state to DONE after execution
     }
 }
 
