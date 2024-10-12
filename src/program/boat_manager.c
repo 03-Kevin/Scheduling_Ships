@@ -172,23 +172,29 @@ void create_boat(char key, int queue_quantity)
     switch (key)
     {
     case 'q':
+        arduino();
         selected_boat = boat_types[0]; // Normal
         break;
     case 'w':
+        arduino();
         selected_boat = boat_types[1]; // Pesquero
         break;
     case 'e':
+        arduino();
         selected_boat = boat_types[2]; // Patrulla
         break;
     case 'r':
+        arduino();
         selected_boat = boat_types[0]; // Normal
         original_side = OCEANO_IZQ;
         break;
     case 't':
+        arduino();
         selected_boat = boat_types[1]; // Pesquero
         original_side = OCEANO_IZQ;
         break;
     case 'y':
+        arduino();
         selected_boat = boat_types[2]; // Patrulla
         original_side = OCEANO_IZQ;
         break;
@@ -216,9 +222,56 @@ void cleanup_boats()
     }
 }
 
+void arduino(){
+        // Configurar el puerto serie (en este caso ttyUSB0)
+    int serial_port = open("/dev/ttyUSB0", O_RDWR);
+    
+    if (serial_port < 0) {
+        printf("Error al abrir el puerto serie.\n");
+        return;
+    }
+    
+    // Configurar las opciones del puerto serie
+    struct termios tty;
+    if (tcgetattr(serial_port, &tty) != 0) {
+        printf("Error configurando el puerto serie.\n");
+        close(serial_port);
+        return;
+    }
+
+    cfsetispeed(&tty, B9600);
+    cfsetospeed(&tty, B9600);
+
+    tty.c_cflag |= (CLOCAL | CREAD); // Activar lectura y ajustar línea para que no cuelgue
+    tty.c_cflag &= ~PARENB;          // No paridad
+    tty.c_cflag &= ~CSTOPB;          // 1 bit de parada
+    tty.c_cflag &= ~CSIZE;           // Limpiar los bits de tamaño de datos
+    tty.c_cflag |= CS8;              // 8 bits de datos
+
+    tty.c_lflag &= ~ICANON;          // Modo no canónico
+    tty.c_lflag &= ~ECHO;            // No eco de los datos leídos
+    tty.c_lflag &= ~ECHOE;
+    tty.c_lflag &= ~ISIG;
+
+    tty.c_oflag &= ~OPOST; // Modo de salida bruta
+
+    // Aplicar configuraciones
+    tcsetattr(serial_port, TCSANOW, &tty);
+
+    // Enviar señal de encender LED al Arduino
+    char led_signal = '2'; // La señal que indica al Arduino encender el LED
+    write(serial_port, &led_signal, sizeof(led_signal));
+
+    // Cerrar el puerto serie
+    close(serial_port);
+
+    printf("LED encendido (parpadeando en Arduino).\n");
+}
+
 // Main program loop that handles the test
 void start_threads()
 {
+    arduino();
     printf("Adentro de start_threads()...\n");
     // Initialize the canal mutex
     CEmutex_init(&canal_mutex);
@@ -226,6 +279,7 @@ void start_threads()
     // Seed random number generator
     srand(time(NULL));
     printf("Adentro de start_threads()...3\n");
+    
     // Main loop to continuously check for key presses and run boats
     while (1)
     {
