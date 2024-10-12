@@ -180,21 +180,17 @@ void create_boat(char key, int queue_quantity)
         selected_boat = boat_types[1]; // Pesquero
         break;
     case 'e':
-        arduino();
         selected_boat = boat_types[2]; // Patrulla
         break;
     case 'r':
-        arduino();
         selected_boat = boat_types[0]; // Normal
         original_side = OCEANO_IZQ;
         break;
     case 't':
-        arduino();
         selected_boat = boat_types[1]; // Pesquero
         original_side = OCEANO_IZQ;
         break;
     case 'y':
-        arduino();
         selected_boat = boat_types[2]; // Patrulla
         original_side = OCEANO_IZQ;
         break;
@@ -223,7 +219,7 @@ void cleanup_boats()
 }
 
 void arduino(){
-        // Configurar el puerto serie (en este caso ttyUSB0)
+       // Configurar el puerto serie (en este caso ttyUSB0)
     int serial_port = open("/dev/ttyUSB0", O_RDWR);
     
     if (serial_port < 0) {
@@ -279,7 +275,6 @@ void start_threads()
     // Seed random number generator
     srand(time(NULL));
     printf("Adentro de start_threads()...3\n");
-    
     // Main loop to continuously check for key presses and run boats
     while (1)
     {
