@@ -11,6 +11,8 @@
 // Global variables
 int boat_count = 0;    // Current number of boats
 int boat_quantity = 0; // Maximum number of boats
+int serial_port = -1; // No serial port open initially
+
 CEthread *boat_queue = NULL;
 
 // Boat types with their respective speeds and priorities
@@ -158,10 +160,8 @@ int kbhit(void)
 }
 
 // Function to create a boat based on key press
-void create_boat(char key, int queue_quantity)
-{
-    if (boat_count >= queue_quantity)
-    {
+void create_boat(char key, int queue_quantity) {
+    if (boat_count >= queue_quantity) {
         printf("No se pueden crear más boats. Reached maximum capacity of %d boats.\n", queue_quantity);
         return;
     }
@@ -169,14 +169,11 @@ void create_boat(char key, int queue_quantity)
     int original_side = (key == 'q' || key == 'w' || key == 'e') ? OCEANO_DER : OCEANO_IZQ;
     BoatType selected_boat;
 
-    switch (key)
-    {
+    switch (key) {
     case 'q':
-        arduino();
         selected_boat = boat_types[0]; // Normal
         break;
     case 'w':
-        arduino();
         selected_boat = boat_types[1]; // Pesquero
         break;
     case 'e':
@@ -206,7 +203,13 @@ void create_boat(char key, int queue_quantity)
     boat_count++;
 
     printf("Creado barco %d: velocidad=%d, prioridad=%d, lado=%d\n", boat_count, selected_boat.speed, selected_boat.priority, original_side);
+
+    // Enviar el número de barcos en el océano derecho al Arduino si el barco está en ese lado
+    if (original_side == OCEANO_DER) {
+        send_boat_count_to_arduino(boat_count); // Enviar la cantidad de barcos al Arduino
+    }
 }
+
 
 void cleanup_boats()
 {
@@ -218,20 +221,20 @@ void cleanup_boats()
     }
 }
 
-void arduino(){
-       // Configurar el puerto serie (en este caso ttyUSB0)
-    int serial_port = open("/dev/ttyUSB0", O_RDWR);
+// Function to open and configure the serial port
+void arduino_init() {
+    serial_port = open("/dev/ttyUSB0", O_RDWR);
     
     if (serial_port < 0) {
         printf("Error al abrir el puerto serie.\n");
         return;
     }
-    
-    // Configurar las opciones del puerto serie
+
     struct termios tty;
     if (tcgetattr(serial_port, &tty) != 0) {
         printf("Error configurando el puerto serie.\n");
         close(serial_port);
+        serial_port = -1;
         return;
     }
 
@@ -253,21 +256,25 @@ void arduino(){
 
     // Aplicar configuraciones
     tcsetattr(serial_port, TCSANOW, &tty);
+}
 
-    // Enviar señal de encender LED al Arduino
-    char led_signal = '2'; // La señal que indica al Arduino encender el LED
-    write(serial_port, &led_signal, sizeof(led_signal));
+// Function to send the number of boats to the Arduino
+void send_boat_count_to_arduino(int boat_count) {
+    if (serial_port == -1) {
+        printf("El puerto serial no está abierto.\n");
+        return;
+    }
 
-    // Cerrar el puerto serie
-    close(serial_port);
-
-    printf("LED encendido (parpadeando en Arduino).\n");
+    char buffer[2];
+    snprintf(buffer, sizeof(buffer), "%d", boat_count); // Convertir número de barcos a cadena
+    write(serial_port, buffer, sizeof(buffer));         // Enviar la cadena por el puerto serial
+    printf("Enviando número de barcos: %d al Arduino\n", boat_count);
 }
 
 // Main program loop that handles the test
 void start_threads()
 {
-    arduino();
+    arduino_init();
     printf("Adentro de start_threads()...\n");
     // Initialize the canal mutex
     CEmutex_init(&canal_mutex);
