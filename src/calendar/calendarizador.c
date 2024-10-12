@@ -182,7 +182,8 @@ void sort_by_priority()
     {
         for (ReadyQueueNode *j = i->next; j != NULL; j = j->next)
         {
-            if (i->thread->priority > j->thread->priority) // Use pointer dereference
+            if (i->thread->priority > j->thread->priority || 
+                (i->thread->priority == j->thread->priority && i->thread->arrival_time > j->thread->arrival_time)) // Compare arrival_time if priorities are equal
             {
                 CEthread *temp = i->thread; // Use pointers
                 i->thread = j->thread;
@@ -208,7 +209,8 @@ void sort_by_sjf()
     {
         for (ReadyQueueNode *j = i->next; j != NULL; j = j->next)
         {
-            if (i->thread->burst_time > j->thread->burst_time) // Use pointer dereference
+            if (i->thread->burst_time > j->thread->burst_time || 
+                (i->thread->burst_time == j->thread->burst_time && i->thread->arrival_time > j->thread->arrival_time)) // Compare arrival_time if burst_time is equal
             {
                 CEthread *temp = i->thread; // Use pointers
                 i->thread = j->thread;
