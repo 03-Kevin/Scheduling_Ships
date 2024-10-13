@@ -15,6 +15,8 @@
 
 // Variable estática para asignar IDs únicos a los hilos
 static int next_thread_id = 0;
+int arrival_counter_left = 0;
+int arrival_counter_right = 0;
 
 /**
  * @brief CEthread_create: Crea un nuevo hilo (barco) y lo pone en state READY.
@@ -34,7 +36,14 @@ int CEthread_create(CEthread *thread, int original_side, int priority, int speed
     thread->original_side = original_side;
     thread->speed = speed;
     thread->priority = priority;
-    thread->arrival_time = thread->thread_id;
+    if (original_side == OCEANO_DER){
+        thread->arrival_time = arrival_counter_right++;
+    }
+
+    else if (original_side == OCEANO_IZQ){
+        thread->arrival_time = arrival_counter_left++;
+    }
+ 
     // Calcular el tiempo de cruce en milisegundos
     thread->burst_time = canal_length / speed;
 
@@ -45,7 +54,13 @@ int CEthread_create(CEthread *thread, int original_side, int priority, int speed
     // Inicializa el state del hilo como READY
     thread->state = READY;
 
-    enqueue_thread(thread);
+    if (original_side == OCEANO_DER){
+        enqueue_thread(thread, queue_right);
+    }
+
+    else if (original_side == OCEANO_IZQ){
+        enqueue_thread(thread, queue_left);
+    }
 
     return 0;
 }

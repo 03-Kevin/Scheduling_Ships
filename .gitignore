@@ -5,3 +5,6 @@
 *.
 
 .vscode/
+*.o
+
+src/program/menuAA

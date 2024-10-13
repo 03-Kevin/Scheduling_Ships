@@ -10,6 +10,9 @@
 #define OCEANO_IZQ 0
 #define OCEANO_DER 1
 
+extern int arrival_counter_left;
+extern int arrival_counter_right;
+
 // Estructura para representar un hilo (barco)
 typedef struct
 {

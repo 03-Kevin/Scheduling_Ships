@@ -35,7 +35,7 @@ void main_program()
     printf("Iniciando prueba del sistema...\n");
 
     // Run the tests (boats crossing the channel)
-    start_threads();
+    start_threads(config.flow_control_method, config.w, config.direction_change_period);
 
     printf("Prueba del sistema finalizada.\n");
 }
@@ -115,7 +115,8 @@ void checkMissingValues(Config config)
     }
     else
     {
-        initialize_boats(config.queue_quantity);
+        initialize_boats_left(config.queue_quantity);
+        initialize_boats_right(config.queue_quantity);
         printf("All configuration values loaded successfully.\n");
     }
 }

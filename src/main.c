@@ -12,7 +12,7 @@
 
 // Declaración de la variable global
 extern ReadyQueue *queue;
-
+   
 /**
  * @brief main: Función principal del monitor
  *  inicia la memoria compartida y muestra la cola de listos.
