@@ -13,7 +13,8 @@
 int boat_count = 0;    // Current number of boats
 int boat_quantity = 0; // Maximum number of boats
 int canal_length = 0;  // Default initialization
-CEthread *boat_queue = NULL;
+CEthread *boat_queue_left = NULL;
+CEthread *boat_queue_right = NULL;
 
 // Boat types with their respective speeds and priorities
 BoatType boat_types[] = {
@@ -25,15 +26,15 @@ BoatType boat_types[] = {
 CEmutex canal_mutex; // Mutex para controlar el acceso al canal
 
 // Function to initialize the boat list with queue_quantity size
-void initialize_boats(int queue_quantity)
+void initialize_boats_left(int queue_quantity)
 {
-    create_ready_queue();
+    create_ready_queue_left();
     // Set the global boat quantity
     boat_quantity = queue_quantity;
 
     // Allocate memory for the boats
-    boat_queue = malloc(queue_quantity * sizeof(CEthread));
-    if (boat_queue == NULL)
+    boat_queue_left = malloc(queue_quantity * sizeof(CEthread));
+    if (boat_queue_left == NULL)
     {
         printf("Error: Could not allocate memory for boats.\n");
         exit(EXIT_FAILURE); // Exit if memory allocation fails
@@ -41,6 +42,25 @@ void initialize_boats(int queue_quantity)
 
     printf("Boat list initialized with capacity for %d boats.\n", queue_quantity);
 }
+
+void initialize_boats_right(int queue_quantity)
+{
+    create_ready_queue_right();
+    // Set the global boat quantity
+    boat_quantity = queue_quantity;
+
+    // Allocate memory for the boats
+    boat_queue_right = malloc(queue_quantity * sizeof(CEthread));
+    if (boat_queue_right == NULL)
+    {
+        printf("Error: Could not allocate memory for boats.\n");
+        exit(EXIT_FAILURE); // Exit if memory allocation fails
+    }
+
+    printf("Boat list initialized with capacity for %d boats.\n", queue_quantity);
+}
+
+int quantum = 4;    
 
 // Cross channel function: locks the canal mutex and starts the crossing
 // case de 3 casos: 1. no apropiativo - 2. rr - 3. tiempo real (revisar primero de la lista)
@@ -55,7 +75,8 @@ void cross_channel(void *arg)
     CEmutex_lock(&canal_mutex);
     printf("Barco %d ha bloqueado el canal. Empieza a cruzar con tiempo estimado: %d segundos.\n", barco->thread_id, barco->burst_time);
 
-    // Diferenciar el comportamiento según el tipo de calendarización
+
+     // Diferenciar el comportamiento según el tipo de calendarización
     if (scheduling_type == 3) // Round Robin
     {
         // Round Robin: usar el quantum
@@ -80,8 +101,14 @@ void cross_channel(void *arg)
         if (barco->burst_time > 0)
         {
             printf("Barco %d no ha terminado de cruzar. Reprogramando...\n", barco->thread_id);
-            barco->arrival_time = arrival_counter++;
-            enqueue_thread(barco); // Lo volvemos a agregar al final de la cola
+            if (barco->original_side == OCEANO_IZQ){
+                barco->arrival_time = arrival_counter_left++;
+                enqueue_thread(barco, queue_left); // Lo volvemos a agregar al final de la cola 
+            }
+            else{
+                barco->arrival_time = arrival_counter_right++;
+                enqueue_thread(barco, queue_right); // Lo volvemos a agregar al final de la cola 
+            }
         }
         else
         {
@@ -90,21 +117,100 @@ void cross_channel(void *arg)
     }
     else if (scheduling_type == 4) // SJF con interrupciones (preemptive)
     {
-        // SJF preemptive: verificar constantemente si hay un barco con menor burst_time
+        if (barco->original_side == OCEANO_IZQ){
+             // SJF preemptive: verificar constantemente si hay un barco con menor burst_time
+            while (barco->burst_time > 0)
+            {
+                // Antes de disminuir el burst_time, verifica si hay un barco en la cola con un burst_time menor.
+                if (queue_left->count > 0)
+                {
+                    ReadyQueueNode *first_in_queue = queue_left->head;
+
+                    // Si el burst_time del barco en la cola es menor, se intercambian.
+                    if (first_in_queue->thread->burst_time < barco->burst_time)
+                    {
+                        printf("-----------\n");
+                        printf("Intercambiando barco %d (tiempo restante %d) con barco %d (tiempo restante %d).\n",
+                            barco->thread_id, barco->burst_time, first_in_queue->thread->thread_id, first_in_queue->thread->burst_time);
+                        printf("-----------\n");
+                        // Encola el barco actual para que espere su turno
+                        enqueue_thread(barco, queue_left);
+
+                        // Dequeue el barco con menor burst_time y lo asigna como el que está ejecutándose
+                        barco = dequeue_thread(queue_left);
+
+                        printf("Barco %d ahora está cruzando el canal con tiempo restante: %d segundos.\n", barco->thread_id, barco->burst_time);
+                    }
+                }
+
+                sleep(1);            // Simulate crossing for 1 second
+                barco->burst_time--; // Decrement burst time
+                int key = kbhit();
+                if (key)
+                {
+                    create_boat(key, boat_quantity);
+                }
+                printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
+            }
+        }
+
+        else if(barco->original_side == OCEANO_DER)
+        {
+             // SJF preemptive: verificar constantemente si hay un barco con menor burst_time
+            while (barco->burst_time > 0)
+            {
+                // Antes de disminuir el burst_time, verifica si hay un barco en la cola con un burst_time menor.
+                if (queue_right->count > 0)
+                {
+                    ReadyQueueNode *first_in_queue = queue_right->head;
+
+                    // Si el burst_time del barco en la cola es menor, se intercambian.
+                    if (first_in_queue->thread->burst_time < barco->burst_time)
+                    {
+                        printf("-----------\n");
+                        printf("Intercambiando barco %d (tiempo restante %d) con barco %d (tiempo restante %d).\n",
+                            barco->thread_id, barco->burst_time, first_in_queue->thread->thread_id, first_in_queue->thread->burst_time);
+                        printf("-----------\n");
+                        // Encola el barco actual para que espere su turno
+                        enqueue_thread(barco, queue_right);
+
+                        // Dequeue el barco con menor burst_time y lo asigna como el que está ejecutándose
+                        barco = dequeue_thread(queue_right);
+
+                        printf("Barco %d ahora está cruzando el canal con tiempo restante: %d segundos.\n", barco->thread_id, barco->burst_time);
+                    }
+                }
+
+                sleep(1);            // Simulate crossing for 1 second
+                barco->burst_time--; // Decrement burst time
+                int key = kbhit();
+                if (key)
+                {
+                    create_boat(key, boat_quantity);
+                }
+                printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
+            }
+        }
+        printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
+    }
+
+    else
+    {
+        // Decrement burst time in a loop until it reaches 0
         while (barco->burst_time > 0)
         {
-            // Antes de disminuir el burst_time, verifica si hay un barco en la cola con un burst_time menor.
-            if (queue->count > 0)
+            sleep(1);            // Simulate crossing for 1 second
+            barco->burst_time--; // Decrement burst time
+            int key = kbhit();
+            if (key)
             {
-                ReadyQueueNode *first_in_queue = queue->head;
+                create_boat(key, boat_quantity);
+            }
+            printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
+        }
+    }
 
-                // Si el burst_time del barco en la cola es menor, se intercambian.
-                if (first_in_queue->thread->burst_time < barco->burst_time)
-                {
-                    printf("-----------\n");
-                    printf("Intercambiando barco %d (tiempo restante %d) con barco %d (tiempo restante %d).\n",
-                           barco->thread_id, barco->burst_time, first_in_queue->thread->thread_id, first_in_queue->thread->burst_time);
-                    printf("-----------\n");
+    printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
 
                     // Encola el barco actual para que espere su turno
                     barco->arrival_time = arrival_counter++;
@@ -154,15 +260,16 @@ void add_boats_from_menu(int normal_left, int fishing_left, int patrol_left,
                          int normal_right, int fishing_right, int patrol_right,
                          int canal_length, int queue_quantity)
 {
-    int total_to_add = normal_left + fishing_left + patrol_left + normal_right + fishing_right + patrol_right;
+    int total_to_add_left = normal_left + fishing_left + patrol_left;
+    int total_to_add_right = normal_right + fishing_right + patrol_right;
 
     // Check if adding the boats would exceed the total capacity
-    if (boat_count + total_to_add > queue_quantity)
+    if (boat_count + total_to_add_left + total_to_add_right > queue_quantity)
     {
         printf("Cannot create more boats. Maximum capacity reached.\n");
         return;
     }
-    if (boat_queue != NULL)
+    if (boat_queue_left != NULL && boat_queue_right != NULL)
     {
         printf("Memory is allocated for boats.\n");
     }
@@ -173,21 +280,21 @@ void add_boats_from_menu(int normal_left, int fishing_left, int patrol_left,
     // Create boats for the left side
     if (normal_left > 0)
     {
-        CEthread_create_batch(boat_queue, boat_count, normal_left, 10, canal_length, 0, 2, OCEANO_IZQ, cross_channel, NULL);
+        CEthread_create_batch(boat_queue_left, boat_count, normal_left, 10, canal_length, 0, 2, OCEANO_IZQ, cross_channel, NULL);
         boat_count += normal_left;
         printf("BOAT COUNT AFTER NORMAL LEFT: %d.\n", boat_count);
     }
 
     if (fishing_left > 0)
     {
-        CEthread_create_batch(boat_queue, boat_count, boat_count + fishing_left, 20, canal_length, 0, 2, OCEANO_IZQ, cross_channel, NULL);
+        CEthread_create_batch(boat_queue_left, boat_count, boat_count + fishing_left, 20, canal_length, 0, 2, OCEANO_IZQ, cross_channel, NULL);
         boat_count += fishing_left;
         printf("BOAT COUNT AFTER NORMAL LEFT: %d.\n", boat_count);
     }
 
     if (patrol_left > 0)
     {
-        CEthread_create_batch(boat_queue, boat_count, patrol_left + boat_count, 25, canal_length, 0, 1, OCEANO_IZQ, cross_channel, NULL);
+        CEthread_create_batch(boat_queue_left, boat_count, patrol_left + boat_count, 25, canal_length, 0, 1, OCEANO_IZQ, cross_channel, NULL);
         boat_count += patrol_left;
         printf("BOAT COUNT AFTER NORMAL LEFT: %d.\n", boat_count);
     }
@@ -195,26 +302,26 @@ void add_boats_from_menu(int normal_left, int fishing_left, int patrol_left,
     // Create boats for the right side
     if (normal_right > 0)
     {
-        CEthread_create_batch(boat_queue, boat_count, normal_right + boat_count, 10, canal_length, 0, 2, OCEANO_DER, cross_channel, NULL);
+        CEthread_create_batch(boat_queue_right, boat_count, normal_right + boat_count, 10, canal_length, 0, 2, OCEANO_DER, cross_channel, NULL);
         boat_count += normal_right;
         printf("BOAT COUNT AFTER NORMAL LEFT: %d.\n", boat_count);
     }
 
     if (fishing_right > 0)
     {
-        CEthread_create_batch(boat_queue, boat_count, fishing_right + boat_count, 20, canal_length, 0, 2, OCEANO_DER, cross_channel, NULL);
+        CEthread_create_batch(boat_queue_right, boat_count, fishing_right + boat_count, 20, canal_length, 0, 2, OCEANO_DER, cross_channel, NULL);
         boat_count += fishing_right;
         printf("BOAT COUNT AFTER NORMAL LEFT: %d.\n", boat_count);
     }
 
     if (patrol_right > 0)
     {
-        CEthread_create_batch(boat_queue, boat_count, patrol_right + boat_count, 25, canal_length, 0, 1, OCEANO_DER, cross_channel, NULL);
+        CEthread_create_batch(boat_queue_right, boat_count, patrol_right + boat_count, 25, canal_length, 0, 1, OCEANO_DER, cross_channel, NULL);
         boat_count += patrol_right;
         printf("BOAT COUNT AFTER NORMAL LEFT: %d.\n", boat_count);
     }
 
-    printf("%d boats added to the list. Total count: %d\n", total_to_add, boat_count);
+    printf("%d boats added to the list. Total count: %d\n", total_to_add_right + total_to_add_left, boat_count);
 }
 
 // Function to check if a key has been pressed
@@ -258,59 +365,92 @@ void create_boat(char key, int queue_quantity)
     int original_side = (key == 'q' || key == 'w' || key == 'e') ? OCEANO_DER : OCEANO_IZQ;
     BoatType selected_boat;
 
+    int burst_time;
+
     switch (key)
     {
     case 'q':
         selected_boat = boat_types[0]; // Normal
+        // Set the burst time based on the selected speed
+        burst_time = canal_length / selected_boat.speed; // Example burst time calculation
+
+        // Create the thread/boat with the selected speed and priority
+        CEthread_create(&boat_queue_right[boat_count], original_side, selected_boat.priority, selected_boat.speed, canal_length, 0, cross_channel, &boat_queue_right[boat_count]);
+        boat_count++;
         break;
     case 'w':
         selected_boat = boat_types[1]; // Pesquero
+        // Set the burst time based on the selected speed
+        burst_time = canal_length / selected_boat.speed; // Example burst time calculation
+
+        // Create the thread/boat with the selected speed and priority
+        CEthread_create(&boat_queue_right[boat_count], original_side, selected_boat.priority, selected_boat.speed, canal_length, 0, cross_channel, &boat_queue_right[boat_count]);
+        boat_count++;
         break;
     case 'e':
         selected_boat = boat_types[2]; // Patrulla
+        // Set the burst time based on the selected speed
+        burst_time = canal_length / selected_boat.speed; // Example burst time calculation
+
+        // Create the thread/boat with the selected speed and priority
+        CEthread_create(&boat_queue_right[boat_count], original_side, selected_boat.priority, selected_boat.speed, canal_length, 0, cross_channel, &boat_queue_right[boat_count]);
+        boat_count++;
         break;
     case 'r':
         selected_boat = boat_types[0]; // Normal
         original_side = OCEANO_IZQ;
+        // Set the burst time based on the selected speed
+        burst_time = canal_length / selected_boat.speed; // Example burst time calculation
+
+        // Create the thread/boat with the selected speed and priority
+        CEthread_create(&boat_queue_left[boat_count], original_side, selected_boat.priority, selected_boat.speed, canal_length, 0, cross_channel, &boat_queue_left[boat_count]);
+        boat_count++;
         break;
     case 't':
         selected_boat = boat_types[1]; // Pesquero
         original_side = OCEANO_IZQ;
+        // Set the burst time based on the selected speed
+        burst_time = canal_length / selected_boat.speed; // Example burst time calculation
+
+        // Create the thread/boat with the selected speed and priority
+        CEthread_create(&boat_queue_left[boat_count], original_side, selected_boat.priority, selected_boat.speed, canal_length, 0, cross_channel, &boat_queue_left[boat_count]);
+        boat_count++;
         break;
     case 'y':
         selected_boat = boat_types[2]; // Patrulla
         original_side = OCEANO_IZQ;
+        // Set the burst time based on the selected speed
+        burst_time = canal_length / selected_boat.speed; // Example burst time calculation
+
+        // Create the thread/boat with the selected speed and priority
+        CEthread_create(&boat_queue_left[boat_count], original_side, selected_boat.priority, selected_boat.speed, canal_length, 0, cross_channel, &boat_queue_left[boat_count]);
+        boat_count++;
         break;
     default:
         return; // Invalid key
     }
-
-    // Set the burst time based on the selected speed
-    int burst_time = canal_length / selected_boat.speed; // Example burst time calculation
-
-    // Create the thread/boat with the selected speed and priority
-    CEthread_create(&boat_queue[boat_count], original_side, selected_boat.priority, selected_boat.speed, canal_length, 0, cross_channel, &boat_queue[boat_count]);
-    boat_count++;
 
     printf("Creado barco %d: velocidad=%d, prioridad=%d, lado=%d\n", boat_count, selected_boat.speed, selected_boat.priority, original_side);
 }
 
 void cleanup_boats()
 {
-    if (boat_queue != NULL)
+    if (boat_queue_left != NULL || boat_queue_right != NULL)
     {
-        free(boat_queue);
-        boat_queue = NULL;
+        free(boat_queue_left);
+        free(boat_queue_right);
+        boat_queue_left = NULL;
+        boat_queue_right = NULL;
         printf("Boat list memory freed.\n");
     }
 }
 
 // Main program loop that handles the test
-void start_threads()
+void start_threads(int flow_control_method, int w, int change_direction_period)
 {
     // Seed random number generator
     srand(time(NULL));
-
+    
     while (1)
     {
         // Check for key presses to add new boats
@@ -320,45 +460,216 @@ void start_threads()
             create_boat(key, boat_quantity);
         }
 
-        // Process boats from the queue if available
-        while (queue->count > 0)
-        {
+        if (flow_control_method == 1){ //Modo EQUIDAD
+            int contador = 0;
+            int flag = 0;
+            printf("-----Left Queue-----\n");
+            print_ready_queue(queue_left);
+            printf("-----Right Queue-----\n");
+            print_ready_queue(queue_right);
             printf("-----------\n");
-            print_ready_queue();
-            printf("-----------\n");
-            // Dequeue and execute the first thread
-            CEthread *thread = dequeue_thread(); // Dequeue the first thread
-            if (thread != NULL)
+            while (queue_left->count > 0 || queue_right->count > 0)
             {
-                if (scheduling_type == 3)
-                {
-                    // Round Robin: ejecutar con quantum
-                    cross_channel(thread);
+                if (flag == 0){
+                     // Dequeue and execute the first thread
+                    if (contador < w){
+                        if (queue_left-> count > 0){
+                            CEthread *thread = dequeue_thread(queue_left); // Dequeue the first thread
+                            if (thread != NULL)
+                            {                             // Check if the thread is valid
+                                CEthread_execute(thread); // Execute the thread
 
-                    // Si el barco terminó de cruzar, finalizarlo
-                    if (thread->burst_time == 0)
-                    {
+                                CEthread_end(thread);
+                                contador++;
+                                printf("contador: %d\n", contador);
+                                printf("-----Left Queue-----\n");
+                                print_ready_queue(queue_left);
+                                printf("-----Right Queue-----\n");
+                                print_ready_queue(queue_right);
+                                printf("-----------\n");
+                            }
+                        }
+                        else{
+                            contador++;
+                        }
+                        
+                    }
+                    else{
+                        contador = 0;
+                        flag = 1;
+                    }
+                    
+                }
+                else{
+                    if (contador < w){
+                        if(queue_right->count > 0){
+                            CEthread *thread = dequeue_thread(queue_right); // Dequeue the first thread
+                            if (thread != NULL)
+                            {                             // Check if the thread is valid
+                                CEthread_execute(thread); // Execute the thread
+                                
+                                CEthread_end(thread);
+                                printf("-----Left Queue-----\n");
+                                print_ready_queue(queue_left);
+                                printf("-----Right Queue-----\n");
+                                print_ready_queue(queue_right);
+                                printf("-----------\n");
+                                contador++;
+                            }
+                        }
+                        else{
+                            contador++;
+                        }
+                    }
+                    else{
+                        contador = 0;
+                        flag = 0;
+                    }
+                }
+                
+                // Allow some time for new boats to be added
+                usleep(100000); // 100 milliseconds
+
+                // Check for key presses again after executing a thread
+                key = kbhit();
+                if (key)
+                {
+                    create_boat(key, boat_quantity);
+                }
+            }
+        }
+
+        else if (flow_control_method == 2){ //Modo LETRERO
+            int contador = 0;
+            int flag = 0;
+            printf("-----Left Queue-----\n");
+            print_ready_queue(queue_left);
+            printf("-----Right Queue-----\n");
+            print_ready_queue(queue_right);
+            printf("-----------\n");
+            while (queue_left->count > 0 || queue_right->count > 0)
+            {
+                printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period - contador);
+                if (flag == 0){
+                     // Dequeue and execute the first thread
+                    if (contador < change_direction_period){
+                        if (queue_left-> count > 0){
+                            CEthread *thread = dequeue_thread(queue_left); // Dequeue the first thread
+                            if (thread != NULL)
+                            {   
+                                contador += thread->burst_time;
+                                CEthread_execute(thread); // Execute the thread
+                                
+                                CEthread_end(thread);
+                                
+                                printf("tiempo transcurrido: %d\n", contador);
+                                printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period-contador);
+                                printf("-----Left Queue-----\n");
+                                print_ready_queue(queue_left);
+                                printf("-----Right Queue-----\n");
+                                print_ready_queue(queue_right);
+                                printf("-----------\n");
+                            }
+                        }
+                        else{
+                            contador++;
+                        }
+                        
+                    }
+                    else{
+                        contador = 0;
+                        flag = 1;
+                    }
+                    
+                }
+                else{
+                    if (contador < change_direction_period){
+                        if(queue_right->count > 0){
+                            CEthread *thread = dequeue_thread(queue_right); // Dequeue the first thread
+                            if (thread != NULL)
+                            {           // Check if the thread is valid
+                                contador += thread->burst_time;
+                                
+                                CEthread_execute(thread); // Execute the thread
+                                
+                                CEthread_end(thread);
+                                printf("tiempo transcurrido: %d\n", contador);
+                                printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period - contador);
+                                printf("-----Left Queue-----\n");
+                                print_ready_queue(queue_left);
+                                printf("-----Right Queue-----\n");
+                                print_ready_queue(queue_right);
+                                printf("-----------\n");
+                            }
+                        }
+                        else{
+                            contador++;
+                        }
+                    }
+                    else{
+                        contador = 0;
+                        flag = 0;
+                    }
+                }
+                
+                // Allow some time for new boats to be added
+                usleep(100000); // 100 milliseconds
+
+                // Check for key presses again after executing a thread
+                key = kbhit();
+                if (key)
+                {
+                    create_boat(key, boat_quantity);
+                }
+            }
+        }
+
+
+        else if (flow_control_method == 3){ //Modo Tico
+            // Process boats from the queue if available
+            while (queue_left->count > 0 || queue_right->count > 0)
+            {
+                printf("-----Left Queue-----\n");
+                print_ready_queue(queue_left);
+                printf("-----Right Queue-----\n");
+                print_ready_queue(queue_right);
+                printf("-----------\n");
+                // Dequeue and execute the first thread
+                if (queue_left-> count > 0){
+                    CEthread *thread = dequeue_thread(queue_left); // Dequeue the first thread
+                    if (thread != NULL)
+                    {                             // Check if the thread is valid
+                        CEthread_execute(thread); // Execute the thread
+
                         CEthread_end(thread);
                     }
                 }
-                else
+                if(queue_right->count > 0){
+                    CEthread *thread = dequeue_thread(queue_right); // Dequeue the first thread
+                    if (thread != NULL)
+                    {                             // Check if the thread is valid
+                        CEthread_execute(thread); // Execute the thread
+
+                        CEthread_end(thread);
+                    }
+                }
+               
+                // Allow some time for new boats to be added
+                usleep(100000); // 100 milliseconds
+
+                // Check for key presses again after executing a thread
+                key = kbhit();
+                if (key)
                 {
-                    // Otros calendarizadores: FCFS, SJF, Prioridad
-                    cross_channel(thread);
-                    CEthread_end(thread); // Siempre finalizar al completar el cruce
+                    create_boat(key, boat_quantity);
                 }
             }
-
-            // Allow some time for new boats to be added
-            usleep(100000); // 100 milliseconds
-
-            // Check for key presses again after executing a thread
-            key = kbhit();
-            if (key)
-            {
-                create_boat(key, boat_quantity);
-            }
         }
+
+        else if (flow_control_method == 2) {
+            
+        }
+       
 
         // Allow some time to process other events before checking the queue again
         usleep(100000); // 100 milliseconds

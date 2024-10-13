@@ -11,20 +11,34 @@
 
 #include "calendarizador.h"
 
-ReadyQueue *queue = NULL; // Global queue
+ReadyQueue *queue_left = NULL; // Global queue left
+ReadyQueue *queue_right = NULL; // Global queue left
 int scheduling_type = 0;  // Global scheduling type
 
 /**
- * @brief Create a ready queue object
+ * @brief Create a ready queue left object
  *
  * @return ReadyQueue*
  */
-ReadyQueue *create_ready_queue()
+ReadyQueue *create_ready_queue_left()
 {
-    queue = (ReadyQueue *)malloc(sizeof(ReadyQueue));
-    queue->head = NULL;
-    queue->count = 0;
-    return queue;
+    queue_left = (ReadyQueue *)malloc(sizeof(ReadyQueue));
+    queue_left->head = NULL;
+    queue_left->count = 0;
+    return queue_left;
+}
+
+/**
+ * @brief Create a ready queue right object
+ *
+ * @return ReadyQueue*
+ */
+ReadyQueue *create_ready_queue_right()
+{
+    queue_right = (ReadyQueue *)malloc(sizeof(ReadyQueue));
+    queue_right->head = NULL;
+    queue_right->count = 0;
+    return queue_right;
 }
 
 /**
@@ -32,7 +46,7 @@ ReadyQueue *create_ready_queue()
  *
  * @param thread
  */
-void enqueue_thread(CEthread *thread) // Use a pointer to CEthread
+void enqueue_thread(CEthread *thread, ReadyQueue *queue) // Use a pointer to CEthread
 {
 
     ReadyQueueNode *new_node = (ReadyQueueNode *)malloc(sizeof(ReadyQueueNode));
@@ -64,7 +78,7 @@ void enqueue_thread(CEthread *thread) // Use a pointer to CEthread
  *
  * @return CEthread*
  */
-CEthread *dequeue_thread() // Return a pointer to CEthread
+CEthread *dequeue_thread(ReadyQueue *queue) // Return a pointer to CEthread
 {
     if (queue->head == NULL)
     {
@@ -86,7 +100,7 @@ CEthread *dequeue_thread() // Return a pointer to CEthread
  *
  * @param position
  */
-void remove_thread_at(int position)
+void remove_thread_at(int position, ReadyQueue *queue)
 {
     if (position < 0 || position >= queue->count)
     {
@@ -153,7 +167,7 @@ void update_ready_queue()
  * @brief print_ready_queue: prints the ready queue.
  *
  */
-void print_ready_queue()
+void print_ready_queue(ReadyQueue *queue)
 {
     if (queue->head == NULL)
     {
@@ -179,12 +193,26 @@ void print_ready_queue()
  */
 void sort_by_priority()
 {
-    if (queue->count < 2)
+    if (queue_left->count < 2 || queue_right->count < 2)
     {
         return;
     }
 
-    for (ReadyQueueNode *i = queue->head; i != NULL; i = i->next)
+    for (ReadyQueueNode *i = queue_left->head; i != NULL; i = i->next)
+    {
+        for (ReadyQueueNode *j = i->next; j != NULL; j = j->next)
+        {
+            if (i->thread->priority > j->thread->priority || 
+                (i->thread->priority == j->thread->priority && i->thread->arrival_time > j->thread->arrival_time)) // Compare arrival_time if priorities are equal
+            {
+                CEthread *temp = i->thread; // Use pointers
+                i->thread = j->thread;
+                j->thread = temp;
+            }
+        }
+    }
+
+    for (ReadyQueueNode *i = queue_right->head; i != NULL; i = i->next)
     {
         for (ReadyQueueNode *j = i->next; j != NULL; j = j->next)
         {
@@ -206,12 +234,26 @@ void sort_by_priority()
  */
 void sort_by_sjf()
 {
-    if (queue->count < 2)
+    if (queue_left->count < 2 || queue_right->count < 2)
     {
         return;
     }
 
-    for (ReadyQueueNode *i = queue->head; i != NULL; i = i->next)
+    for (ReadyQueueNode *i = queue_left->head; i != NULL; i = i->next)
+    {
+        for (ReadyQueueNode *j = i->next; j != NULL; j = j->next)
+        {
+            if (i->thread->burst_time > j->thread->burst_time || 
+                (i->thread->burst_time == j->thread->burst_time && i->thread->arrival_time > j->thread->arrival_time)) // Compare arrival_time if burst_time is equal
+            {
+                CEthread *temp = i->thread; // Use pointers
+                i->thread = j->thread;
+                j->thread = temp;
+            }
+        }
+    }
+
+     for (ReadyQueueNode *i = queue_right->head; i != NULL; i = i->next)
     {
         for (ReadyQueueNode *j = i->next; j != NULL; j = j->next)
         {
@@ -231,12 +273,25 @@ void sort_by_sjf()
  */
 void sort_by_fcfs()
 {
-    if (queue->count < 2)
+    if (queue_left->count < 2 || queue_right->count < 2)
     {
         return;
     }
 
-    for (ReadyQueueNode *i = queue->head; i != NULL; i = i->next)
+    for (ReadyQueueNode *i = queue_left->head; i != NULL; i = i->next)
+    {
+        for (ReadyQueueNode *j = i->next; j != NULL; j = j->next)
+        {
+            if (i->thread->arrival_time > j->thread->arrival_time) // Use pointer dereference
+            {
+                CEthread *temp = i->thread; // Use pointers
+                i->thread = j->thread;
+                j->thread = temp;
+            }
+        }
+    }
+
+     for (ReadyQueueNode *i = queue_right->head; i != NULL; i = i->next)
     {
         for (ReadyQueueNode *j = i->next; j != NULL; j = j->next)
         {
