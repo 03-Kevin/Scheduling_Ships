@@ -15,6 +15,7 @@
 
 // Variable estática para asignar IDs únicos a los hilos
 static int next_thread_id = 0;
+int arrival_counter = 0;
 
 /**
  * @brief CEthread_create: Crea un nuevo hilo (barco) y lo pone en state READY.
@@ -34,7 +35,7 @@ int CEthread_create(CEthread *thread, int original_side, int priority, int speed
     thread->original_side = original_side;
     thread->speed = speed;
     thread->priority = priority;
-    thread->arrival_time = thread->thread_id;
+    thread->arrival_time = arrival_counter++;
     // Calcular el tiempo de cruce en milisegundos
     thread->burst_time = canal_length / speed;
 

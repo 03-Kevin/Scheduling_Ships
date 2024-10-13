@@ -45,7 +45,7 @@ void initialize_boats(int queue_quantity)
 // Cross channel function: locks the canal mutex and starts the crossing
 // case de 3 casos: 1. no apropiativo - 2. rr - 3. tiempo real (revisar primero de la lista)
 
-int quantum = 4;       // Quantum para Round Robin
+int quantum = 4; // Quantum para Round Robin
 
 void cross_channel(void *arg)
 {
@@ -64,6 +64,11 @@ void cross_channel(void *arg)
         {
             sleep(1);            // Simulate crossing for 1 second
             barco->burst_time--; // Decrement burst time
+            int key = kbhit();
+            if (key)
+            {
+                create_boat(key, boat_quantity);
+            }
             printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
 
             if (barco->burst_time == 0)
@@ -75,6 +80,7 @@ void cross_channel(void *arg)
         if (barco->burst_time > 0)
         {
             printf("Barco %d no ha terminado de cruzar. Reprogramando...\n", barco->thread_id);
+            barco->arrival_time = arrival_counter++;
             enqueue_thread(barco); // Lo volvemos a agregar al final de la cola
         }
         else
@@ -95,10 +101,13 @@ void cross_channel(void *arg)
                 // Si el burst_time del barco en la cola es menor, se intercambian.
                 if (first_in_queue->thread->burst_time < barco->burst_time)
                 {
+                    printf("-----------\n");
                     printf("Intercambiando barco %d (tiempo restante %d) con barco %d (tiempo restante %d).\n",
                            barco->thread_id, barco->burst_time, first_in_queue->thread->thread_id, first_in_queue->thread->burst_time);
+                    printf("-----------\n");
 
                     // Encola el barco actual para que espere su turno
+                    barco->arrival_time = arrival_counter++;
                     enqueue_thread(barco);
 
                     // Dequeue el barco con menor burst_time y lo asigna como el que está ejecutándose
@@ -110,6 +119,11 @@ void cross_channel(void *arg)
 
             sleep(1);            // Simulate crossing for 1 second
             barco->burst_time--; // Decrement burst time
+            int key = kbhit();
+            if (key)
+            {
+                create_boat(key, boat_quantity);
+            }
             printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
         }
 
@@ -122,6 +136,11 @@ void cross_channel(void *arg)
         {
             sleep(1);            // Simulate crossing for 1 second
             barco->burst_time--; // Decrement burst time
+            int key = kbhit();
+            if (key)
+            {
+                create_boat(key, boat_quantity);
+            }
             printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
         }
         printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
@@ -130,8 +149,6 @@ void cross_channel(void *arg)
     // Unlock the canal mutex after crossing
     CEmutex_unlock(&canal_mutex);
 }
-
-
 
 void add_boats_from_menu(int normal_left, int fishing_left, int patrol_left,
                          int normal_right, int fishing_right, int patrol_right,
@@ -306,7 +323,9 @@ void start_threads()
         // Process boats from the queue if available
         while (queue->count > 0)
         {
+            printf("-----------\n");
             print_ready_queue();
+            printf("-----------\n");
             // Dequeue and execute the first thread
             CEthread *thread = dequeue_thread(); // Dequeue the first thread
             if (thread != NULL)
