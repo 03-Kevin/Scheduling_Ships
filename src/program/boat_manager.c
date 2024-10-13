@@ -82,9 +82,42 @@ void cross_channel(void *arg)
             printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
         }
     }
+    else if (scheduling_type == 4) // SJF con interrupciones (preemptive)
+    {
+        // SJF preemptive: verificar constantemente si hay un barco con menor burst_time
+        while (barco->burst_time > 0)
+        {
+            // Antes de disminuir el burst_time, verifica si hay un barco en la cola con un burst_time menor.
+            if (queue->count > 0)
+            {
+                ReadyQueueNode *first_in_queue = queue->head;
+
+                // Si el burst_time del barco en la cola es menor, se intercambian.
+                if (first_in_queue->thread->burst_time < barco->burst_time)
+                {
+                    printf("Intercambiando barco %d (tiempo restante %d) con barco %d (tiempo restante %d).\n",
+                           barco->thread_id, barco->burst_time, first_in_queue->thread->thread_id, first_in_queue->thread->burst_time);
+
+                    // Encola el barco actual para que espere su turno
+                    enqueue_thread(barco);
+
+                    // Dequeue el barco con menor burst_time y lo asigna como el que está ejecutándose
+                    barco = dequeue_thread();
+
+                    printf("Barco %d ahora está cruzando el canal con tiempo restante: %d segundos.\n", barco->thread_id, barco->burst_time);
+                }
+            }
+
+            sleep(1);            // Simulate crossing for 1 second
+            barco->burst_time--; // Decrement burst time
+            printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
+        }
+
+        printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
+    }
     else
     {
-        // Otros calendarizadores (FCFS, SJF, Prioridad)
+        // Otros calendarizadores (FCFS, SJF sin interrupciones, Prioridad)
         while (barco->burst_time > 0)
         {
             sleep(1);            // Simulate crossing for 1 second
@@ -97,6 +130,7 @@ void cross_channel(void *arg)
     // Unlock the canal mutex after crossing
     CEmutex_unlock(&canal_mutex);
 }
+
 
 
 void add_boats_from_menu(int normal_left, int fishing_left, int patrol_left,

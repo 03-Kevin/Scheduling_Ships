@@ -3,4 +3,4 @@ length: 100
 queue_quantity: 100
 direction_change_period: 3
 w: 2
-scheduling_method: 3
+scheduling_method: 4
