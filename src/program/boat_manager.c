@@ -10,9 +10,11 @@
 #include "../calendar/calendarizador.h"
 
 // Global variables
-int boat_count = 0;    // Current number of boats
+int boat_count = 1;    // Current number of boats
 int boat_quantity = 0; // Maximum number of boats
 int canal_length = 0;  // Default initialization
+int serial_port = -1; //
+int boat_count_arduino = 0;
 CEthread *boat_queue = NULL;
 
 // Boat types with their respective speeds and priorities
@@ -54,6 +56,7 @@ void cross_channel(void *arg)
     // Lock the canal mutex before crossing
     CEmutex_lock(&canal_mutex);
     printf("Barco %d ha bloqueado el canal. Empieza a cruzar con tiempo estimado: %d segundos.\n", barco->thread_id, barco->burst_time);
+    boat_count_arduino--;
 
     // Diferenciar el comportamiento según el tipo de calendarización
     if (scheduling_type == 3) // Round Robin
@@ -65,6 +68,7 @@ void cross_channel(void *arg)
             sleep(1);            // Simulate crossing for 1 second
             barco->burst_time--; // Decrement burst time
             printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
+            send_boat_count_to_arduino(boat_count_arduino);
 
             if (barco->burst_time == 0)
             {
@@ -80,6 +84,7 @@ void cross_channel(void *arg)
         else
         {
             printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
+
         }
     }
     else if (scheduling_type == 4) // SJF con interrupciones (preemptive)
@@ -112,7 +117,6 @@ void cross_channel(void *arg)
             barco->burst_time--; // Decrement burst time
             printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
         }
-
         printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
     }
     else
@@ -230,6 +234,7 @@ int kbhit(void)
 
 // Function to create a boat based on key press
 
+
 void create_boat(char key, int queue_quantity)
 {
     if (boat_count >= queue_quantity)
@@ -271,9 +276,11 @@ void create_boat(char key, int queue_quantity)
     // Set the burst time based on the selected speed
     int burst_time = canal_length / selected_boat.speed; // Example burst time calculation
 
+
     // Create the thread/boat with the selected speed and priority
     CEthread_create(&boat_queue[boat_count], original_side, selected_boat.priority, selected_boat.speed, canal_length, 0, cross_channel, &boat_queue[boat_count]);
     boat_count++;
+
 
     printf("Creado barco %d: velocidad=%d, prioridad=%d, lado=%d\n", boat_count, selected_boat.speed, selected_boat.priority, original_side);
 }
@@ -288,9 +295,61 @@ void cleanup_boats()
     }
 }
 
+// Function to send the number of boats to the Arduino
+void send_boat_count_to_arduino(int boat_count) {
+    if (serial_port == -1) {
+        printf("El puerto serial no está abierto.\n");
+        return;
+    }
+
+    char buffer[2];
+    snprintf(buffer, sizeof(buffer), "%d", boat_count); // Convertir número de barcos a cadena
+    write(serial_port, buffer, sizeof(buffer));         // Enviar la cadena por el puerto serial
+    printf("Enviando número de barcos: %d al Arduino\n", boat_count);
+}
+
+// Function to open and configure the serial port
+void arduino_init() {
+    serial_port = open("/dev/ttyUSB0", O_RDWR);
+    
+    if (serial_port < 0) {
+        printf("Error al abrir el puerto serie.\n");
+        return;
+    }
+
+    struct termios tty;
+    if (tcgetattr(serial_port, &tty) != 0) {
+        printf("Error configurando el puerto serie.\n");
+        close(serial_port);
+        serial_port = -1;
+        return;
+    }
+
+    cfsetispeed(&tty, B9600);
+    cfsetospeed(&tty, B9600);
+
+    tty.c_cflag |= (CLOCAL | CREAD); // Activar lectura y ajustar línea para que no cuelgue
+    tty.c_cflag &= ~PARENB;          // No paridad
+    tty.c_cflag &= ~CSTOPB;          // 1 bit de parada
+    tty.c_cflag &= ~CSIZE;           // Limpiar los bits de tamaño de datos
+    tty.c_cflag |= CS8;              // 8 bits de datos
+
+    tty.c_lflag &= ~ICANON;          // Modo no canónico
+    tty.c_lflag &= ~ECHO;            // No eco de los datos leídos
+    tty.c_lflag &= ~ECHOE;
+    tty.c_lflag &= ~ISIG;
+
+    tty.c_oflag &= ~OPOST; // Modo de salida bruta
+
+    // Aplicar configuraciones
+    tcsetattr(serial_port, TCSANOW, &tty);
+}
+
+
 // Main program loop that handles the test
 void start_threads()
 {
+    arduino_init();
     // Seed random number generator
     srand(time(NULL));
 
@@ -300,12 +359,16 @@ void start_threads()
         int key = kbhit();
         if (key)
         {
+            boat_count_arduino++;
+            send_boat_count_to_arduino(boat_count_arduino);
             create_boat(key, boat_quantity);
         }
 
         // Process boats from the queue if available
         while (queue->count > 0)
         {
+            // Enviar actualización al Arduino incluso mientras el barco cruza
+            send_boat_count_to_arduino(boat_count_arduino);
             print_ready_queue();
             // Dequeue and execute the first thread
             CEthread *thread = dequeue_thread(); // Dequeue the first thread
@@ -313,12 +376,16 @@ void start_threads()
             {
                 if (scheduling_type == 3)
                 {
+                    // Enviar actualización al Arduino incluso mientras el barco cruza
+                    send_boat_count_to_arduino(boat_count_arduino);
+
                     // Round Robin: ejecutar con quantum
                     cross_channel(thread);
 
                     // Si el barco terminó de cruzar, finalizarlo
                     if (thread->burst_time == 0)
                     {
+                        send_boat_count_to_arduino(boat_count_arduino);  // Actualizar LEDs
                         CEthread_end(thread);
                     }
                 }
@@ -337,6 +404,8 @@ void start_threads()
             key = kbhit();
             if (key)
             {
+                boat_count_arduino++;
+                send_boat_count_to_arduino(boat_count_arduino);
                 create_boat(key, boat_quantity);
             }
         }
