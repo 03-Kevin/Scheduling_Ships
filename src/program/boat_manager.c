@@ -1,5 +1,6 @@
 // LIBRARIES
 #include <stdio.h>
+#include <poll.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
@@ -49,26 +50,26 @@ void initialize_boats(int queue_quantity)
 
 int quantum = 4;       // Quantum para Round Robin
 
+// Cross channel function: locks the canal mutex and starts the crossing
 void cross_channel(void *arg)
 {
     CEthread *barco = (CEthread *)arg;
-
-    // Lock the canal mutex before crossing
+    delete_led();
     CEmutex_lock(&canal_mutex);
     printf("Barco %d ha bloqueado el canal. Empieza a cruzar con tiempo estimado: %d segundos.\n", barco->thread_id, barco->burst_time);
-    boat_count_arduino--;
+    boat_count_arduino--; // Enviar estado inicial
+
 
     // Diferenciar el comportamiento según el tipo de calendarización
     if (scheduling_type == 3) // Round Robin
     {
-        // Round Robin: usar el quantum
         int time_to_cross = (barco->burst_time < quantum) ? barco->burst_time : quantum;
         for (int i = 0; i < time_to_cross; i++)
         {
             sleep(1);            // Simulate crossing for 1 second
             barco->burst_time--; // Decrement burst time
+            //add_led();
             printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
-            send_boat_count_to_arduino(boat_count_arduino);
 
             if (barco->burst_time == 0)
             {
@@ -79,54 +80,56 @@ void cross_channel(void *arg)
         if (barco->burst_time > 0)
         {
             printf("Barco %d no ha terminado de cruzar. Reprogramando...\n", barco->thread_id);
-            enqueue_thread(barco); // Lo volvemos a agregar al final de la cola
+            enqueue_thread(barco); // Reprogramar barco
         }
         else
         {
             printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
-
         }
     }
     else if (scheduling_type == 4) // SJF con interrupciones (preemptive)
     {
-        // SJF preemptive: verificar constantemente si hay un barco con menor burst_time
+        
+         
         while (barco->burst_time > 0)
         {
-            // Antes de disminuir el burst_time, verifica si hay un barco en la cola con un burst_time menor.
+            
             if (queue->count > 0)
             {
                 ReadyQueueNode *first_in_queue = queue->head;
 
-                // Si el burst_time del barco en la cola es menor, se intercambian.
                 if (first_in_queue->thread->burst_time < barco->burst_time)
                 {
+
                     printf("Intercambiando barco %d (tiempo restante %d) con barco %d (tiempo restante %d).\n",
                            barco->thread_id, barco->burst_time, first_in_queue->thread->thread_id, first_in_queue->thread->burst_time);
 
-                    // Encola el barco actual para que espere su turno
                     enqueue_thread(barco);
-
-                    // Dequeue el barco con menor burst_time y lo asigna como el que está ejecutándose
                     barco = dequeue_thread();
-
                     printf("Barco %d ahora está cruzando el canal con tiempo restante: %d segundos.\n", barco->thread_id, barco->burst_time);
                 }
             }
-
             sleep(1);            // Simulate crossing for 1 second
             barco->burst_time--; // Decrement burst time
+            //////////////////
+            led_manager();
+            crossing_led();
+            printf("Faro está encendido, barco está cruzando");
             printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
+            
         }
+        turn_off_crossing_led();
         printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
     }
     else
     {
-        // Otros calendarizadores (FCFS, SJF sin interrupciones, Prioridad)
         while (barco->burst_time > 0)
         {
             sleep(1);            // Simulate crossing for 1 second
             barco->burst_time--; // Decrement burst time
+            //add_led();
             printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
+
         }
         printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
     }
@@ -134,6 +137,7 @@ void cross_channel(void *arg)
     // Unlock the canal mutex after crossing
     CEmutex_unlock(&canal_mutex);
 }
+
 
 
 
@@ -282,6 +286,7 @@ void create_boat(char key, int queue_quantity)
     boat_count++;
 
 
+
     printf("Creado barco %d: velocidad=%d, prioridad=%d, lado=%d\n", boat_count, selected_boat.speed, selected_boat.priority, original_side);
 }
 
@@ -295,17 +300,46 @@ void cleanup_boats()
     }
 }
 
-// Function to send the number of boats to the Arduino
-void send_boat_count_to_arduino(int boat_count) {
+
+void delete_led() {
     if (serial_port == -1) {
         printf("El puerto serial no está abierto.\n");
         return;
     }
+// Enviar el número '1' al Arduino
+    char signal = '1';
+    write(serial_port, &signal, sizeof(signal));
+    printf("Se ha enviado '1' al Arduino\n");
+}
 
-    char buffer[2];
-    snprintf(buffer, sizeof(buffer), "%d", boat_count); // Convertir número de barcos a cadena
-    write(serial_port, buffer, sizeof(buffer));         // Enviar la cadena por el puerto serial
-    printf("Enviando número de barcos: %d al Arduino\n", boat_count);
+void led_manager() {
+    int key = kbhit();
+    if(key){
+        write(serial_port, &key, 1);
+        printf("Tecla presionada para el Arduino");
+        create_boat(key, boat_quantity);
+    }
+}
+
+void crossing_led() {
+    if (serial_port == -1) {
+        printf("El puerto serial no está abierto.\n");
+        return;
+    }
+// Enviar el número '1' al Arduino
+    char signal = '3';
+    write(serial_port, &signal, sizeof(signal));
+}
+
+void turn_off_crossing_led(){
+    if (serial_port == -1) {
+        printf("El puerto serial no está abierto.\n");
+        return;
+    }
+// Enviar el número '1' al Arduino
+    char signal = '0';
+    write(serial_port, &signal, sizeof(signal));
+
 }
 
 // Function to open and configure the serial port
@@ -345,13 +379,12 @@ void arduino_init() {
     tcsetattr(serial_port, TCSANOW, &tty);
 }
 
-
 // Main program loop that handles the test
 void start_threads()
 {
-    arduino_init();
     // Seed random number generator
     srand(time(NULL));
+    arduino_init();
 
     while (1)
     {
@@ -359,16 +392,12 @@ void start_threads()
         int key = kbhit();
         if (key)
         {
-            boat_count_arduino++;
-            send_boat_count_to_arduino(boat_count_arduino);
             create_boat(key, boat_quantity);
         }
 
         // Process boats from the queue if available
         while (queue->count > 0)
         {
-            // Enviar actualización al Arduino incluso mientras el barco cruza
-            send_boat_count_to_arduino(boat_count_arduino);
             print_ready_queue();
             // Dequeue and execute the first thread
             CEthread *thread = dequeue_thread(); // Dequeue the first thread
@@ -376,16 +405,12 @@ void start_threads()
             {
                 if (scheduling_type == 3)
                 {
-                    // Enviar actualización al Arduino incluso mientras el barco cruza
-                    send_boat_count_to_arduino(boat_count_arduino);
-
                     // Round Robin: ejecutar con quantum
                     cross_channel(thread);
 
                     // Si el barco terminó de cruzar, finalizarlo
                     if (thread->burst_time == 0)
                     {
-                        send_boat_count_to_arduino(boat_count_arduino);  // Actualizar LEDs
                         CEthread_end(thread);
                     }
                 }
@@ -399,15 +424,6 @@ void start_threads()
 
             // Allow some time for new boats to be added
             usleep(100000); // 100 milliseconds
-
-            // Check for key presses again after executing a thread
-            key = kbhit();
-            if (key)
-            {
-                boat_count_arduino++;
-                send_boat_count_to_arduino(boat_count_arduino);
-                create_boat(key, boat_quantity);
-            }
         }
 
         // Allow some time to process other events before checking the queue again
