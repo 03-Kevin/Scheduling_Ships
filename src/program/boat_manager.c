@@ -44,6 +44,9 @@ void initialize_boats(int queue_quantity)
 
 // Cross channel function: locks the canal mutex and starts the crossing
 // case de 3 casos: 1. no apropiativo - 2. rr - 3. tiempo real (revisar primero de la lista)
+
+int quantum = 4;       // Quantum para Round Robin
+
 void cross_channel(void *arg)
 {
     CEthread *barco = (CEthread *)arg;
@@ -52,19 +55,49 @@ void cross_channel(void *arg)
     CEmutex_lock(&canal_mutex);
     printf("Barco %d ha bloqueado el canal. Empieza a cruzar con tiempo estimado: %d segundos.\n", barco->thread_id, barco->burst_time);
 
-    // Decrement burst time in a loop until it reaches 0
-    while (barco->burst_time > 0)
+    // Diferenciar el comportamiento según el tipo de calendarización
+    if (scheduling_type == 3) // Round Robin
     {
-        sleep(1);            // Simulate crossing for 1 second
-        barco->burst_time--; // Decrement burst time
-        printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
-    }
+        // Round Robin: usar el quantum
+        int time_to_cross = (barco->burst_time < quantum) ? barco->burst_time : quantum;
+        for (int i = 0; i < time_to_cross; i++)
+        {
+            sleep(1);            // Simulate crossing for 1 second
+            barco->burst_time--; // Decrement burst time
+            printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
 
-    printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
+            if (barco->burst_time == 0)
+            {
+                break;
+            }
+        }
+
+        if (barco->burst_time > 0)
+        {
+            printf("Barco %d no ha terminado de cruzar. Reprogramando...\n", barco->thread_id);
+            enqueue_thread(barco); // Lo volvemos a agregar al final de la cola
+        }
+        else
+        {
+            printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
+        }
+    }
+    else
+    {
+        // Otros calendarizadores (FCFS, SJF, Prioridad)
+        while (barco->burst_time > 0)
+        {
+            sleep(1);            // Simulate crossing for 1 second
+            barco->burst_time--; // Decrement burst time
+            printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
+        }
+        printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
+    }
 
     // Unlock the canal mutex after crossing
     CEmutex_unlock(&canal_mutex);
 }
+
 
 void add_boats_from_menu(int normal_left, int fishing_left, int patrol_left,
                          int normal_right, int fishing_right, int patrol_right,
@@ -243,10 +276,24 @@ void start_threads()
             // Dequeue and execute the first thread
             CEthread *thread = dequeue_thread(); // Dequeue the first thread
             if (thread != NULL)
-            {                             // Check if the thread is valid
-                CEthread_execute(thread); // Execute the thread
+            {
+                if (scheduling_type == 3)
+                {
+                    // Round Robin: ejecutar con quantum
+                    cross_channel(thread);
 
-                CEthread_end(thread);
+                    // Si el barco terminó de cruzar, finalizarlo
+                    if (thread->burst_time == 0)
+                    {
+                        CEthread_end(thread);
+                    }
+                }
+                else
+                {
+                    // Otros calendarizadores: FCFS, SJF, Prioridad
+                    cross_channel(thread);
+                    CEthread_end(thread); // Siempre finalizar al completar el cruce
+                }
             }
 
             // Allow some time for new boats to be added
