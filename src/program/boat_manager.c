@@ -54,7 +54,7 @@ int quantum = 4;       // Quantum para Round Robin
 void cross_channel(void *arg)
 {
     CEthread *barco = (CEthread *)arg;
-    delete_led();
+    delete_led(barco->original_side);
     CEmutex_lock(&canal_mutex);
     printf("Barco %d ha bloqueado el canal. Empieza a cruzar con tiempo estimado: %d segundos.\n", barco->thread_id, barco->burst_time);
     boat_count_arduino--; // Enviar estado inicial
@@ -300,16 +300,25 @@ void cleanup_boats()
     }
 }
 
+///// ARDUINO ///////////
 
-void delete_led() {
-    if (serial_port == -1) {
-        printf("El puerto serial no está abierto.\n");
-        return;
+void delete_led(int original_side) {
+    
+    if(original_side == OCEANO_DER){
+        // Enviar el número '1' al Arduino
+        char signal = '1';
+        write(serial_port, &signal, sizeof(signal));
+        printf("Se ha quitado barco del oceano DERECHO\n");
     }
-// Enviar el número '1' al Arduino
-    char signal = '1';
-    write(serial_port, &signal, sizeof(signal));
-    printf("Se ha enviado '1' al Arduino\n");
+
+    if(original_side == OCEANO_IZQ){
+        // Enviar el número '1' al Arduino
+        char signal = '2';
+        write(serial_port, &signal, sizeof(signal));
+        printf("Se ha quitado barco del oceano IZQUIERDO\n");
+    }
+
+
 }
 
 void led_manager() {
@@ -341,6 +350,8 @@ void turn_off_crossing_led(){
     write(serial_port, &signal, sizeof(signal));
 
 }
+////////////////////////////////////////////////
+
 
 // Function to open and configure the serial port
 void arduino_init() {
