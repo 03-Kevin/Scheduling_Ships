@@ -138,6 +138,12 @@ void update_ready_queue()
     case 2:
         sort_by_fcfs();
         break;
+    case 3:
+        sort_by_fcfs();
+        break;
+    case 4:
+        sort_by_sjf();
+        break;
     default:
         break;
     }
@@ -182,7 +188,8 @@ void sort_by_priority()
     {
         for (ReadyQueueNode *j = i->next; j != NULL; j = j->next)
         {
-            if (i->thread->priority > j->thread->priority) // Use pointer dereference
+            if (i->thread->priority > j->thread->priority ||
+                (i->thread->priority == j->thread->priority && i->thread->arrival_time > j->thread->arrival_time)) // Compare arrival_time if priorities are equal
             {
                 CEthread *temp = i->thread; // Use pointers
                 i->thread = j->thread;
@@ -208,7 +215,8 @@ void sort_by_sjf()
     {
         for (ReadyQueueNode *j = i->next; j != NULL; j = j->next)
         {
-            if (i->thread->burst_time > j->thread->burst_time) // Use pointer dereference
+            if (i->thread->burst_time > j->thread->burst_time ||
+                (i->thread->burst_time == j->thread->burst_time && i->thread->arrival_time > j->thread->arrival_time)) // Compare arrival_time if burst_time is equal
             {
                 CEthread *temp = i->thread; // Use pointers
                 i->thread = j->thread;
@@ -261,6 +269,14 @@ void calendar()
     case 2:
         printf("Usando First Come First Served (FCFS)\n");
         sort_by_fcfs();
+        break;
+    case 3:
+        printf("Usando Round Robin(RR)\n");
+        sort_by_fcfs();
+        break;
+    case 4:
+        printf("Usando Earliest Deadline First (EDF)\n");
+        sort_by_sjf();
         break;
     default:
         printf("Tipo de calendarización no válido\n");

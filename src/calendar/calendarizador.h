@@ -21,6 +21,7 @@ typedef struct
 } ReadyQueue;
 
 extern ReadyQueue *queue;
+extern int scheduling_type;
 
 // Ready Queue management functions
 ReadyQueue *create_ready_queue();
