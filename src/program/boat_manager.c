@@ -114,7 +114,7 @@ void cross_channel(void *arg)
             //////////////////
             led_manager();
             crossing_led();
-            printf("Faro está encendido, barco está cruzando");
+            printf("Faro está encendido, barco está cruzando\n");
             printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
             
         }
@@ -204,6 +204,9 @@ void add_boats_from_menu(int normal_left, int fishing_left, int patrol_left,
         boat_count += patrol_right;
         printf("BOAT COUNT AFTER NORMAL LEFT: %d.\n", boat_count);
     }
+            
+        carga_arduino(normal_left, patrol_left, fishing_left,
+                            normal_right,patrol_right, fishing_right);
 
     printf("%d boats added to the list. Total count: %d\n", total_to_add, boat_count);
 }
@@ -303,17 +306,17 @@ void cleanup_boats()
 ///// ARDUINO ///////////
 
 void delete_led(int original_side) {
-    
+
     if(original_side == OCEANO_DER){
         // Enviar el número '1' al Arduino
-        char signal = '1';
+        char signal = 'd';
         write(serial_port, &signal, sizeof(signal));
         printf("Se ha quitado barco del oceano DERECHO\n");
     }
 
     if(original_side == OCEANO_IZQ){
         // Enviar el número '1' al Arduino
-        char signal = '2';
+        char signal = 'i';
         write(serial_port, &signal, sizeof(signal));
         printf("Se ha quitado barco del oceano IZQUIERDO\n");
     }
@@ -335,8 +338,8 @@ void crossing_led() {
         printf("El puerto serial no está abierto.\n");
         return;
     }
-// Enviar el número '1' al Arduino
-    char signal = '3';
+
+    char signal = 'c';
     write(serial_port, &signal, sizeof(signal));
 }
 
@@ -345,11 +348,39 @@ void turn_off_crossing_led(){
         printf("El puerto serial no está abierto.\n");
         return;
     }
-// Enviar el número '1' al Arduino
-    char signal = '0';
+
+    char signal = 'o';
     write(serial_port, &signal, sizeof(signal));
 
 }
+
+void carga_arduino(int normal_left, int patrol_left, int fishing_left,
+                   int normal_right, int patrol_right, int fishing_right) {
+    int total_left = normal_left + fishing_left + patrol_left;
+    int total_right = normal_right + fishing_right + patrol_right;
+
+    printf("El total de barcos a la izquierda es: %d\n", total_left);
+    printf("El total de barcos a la derecha es: %d\n", total_right);
+
+    // Enviar la cantidad de barcos a la izquierda
+    char mensaje[50];
+
+    sprintf(mensaje, "L%d\n", total_left);
+    printf("CANTIDAD DE BARCOS ENVIADOS: %s\n", mensaje);
+    usleep(100000);  // Esperar 100 milisegundos
+    write(serial_port, mensaje, strlen(mensaje));
+
+
+    // Enviar la cantidad de barcos a la derecha
+    sprintf(mensaje, "R%d\n", total_right);
+    
+    usleep(100000);  // Esperar 100 milisegundos
+    write(serial_port, mensaje, strlen(mensaje));
+
+}
+
+
+
 ////////////////////////////////////////////////
 
 

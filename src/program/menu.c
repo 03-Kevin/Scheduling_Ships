@@ -205,9 +205,11 @@ void preset_load()
                 add_boats_from_menu(global_normal_left, global_fishing_left, global_patrols_left,
                             global_normal_right, global_fishing_right, global_patrols_right,
                             canal_length, config.queue_quantity);
+                            
 
         // Proceed to the main program logic
         main_program();
+
     }
     else
     {
