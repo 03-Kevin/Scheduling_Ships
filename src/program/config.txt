@@ -1,6 +1,6 @@
-flow_control_method: 2
+flow_control_method: 3
 length: 100
 queue_quantity: 100
 direction_change_period: 15
 w: 2
-scheduling_method: 1
+scheduling_method: 3

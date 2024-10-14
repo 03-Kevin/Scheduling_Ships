@@ -36,14 +36,16 @@ int CEthread_create(CEthread *thread, int original_side, int priority, int speed
     thread->original_side = original_side;
     thread->speed = speed;
     thread->priority = priority;
-    if (original_side == OCEANO_DER){
+    if (original_side == OCEANO_DER)
+    {
         thread->arrival_time = arrival_counter_right++;
     }
 
-    else if (original_side == OCEANO_IZQ){
+    else if (original_side == OCEANO_IZQ)
+    {
         thread->arrival_time = arrival_counter_left++;
     }
- 
+
     // Calcular el tiempo de cruce en milisegundos
     thread->burst_time = canal_length / speed;
 
@@ -54,11 +56,13 @@ int CEthread_create(CEthread *thread, int original_side, int priority, int speed
     // Inicializa el state del hilo como READY
     thread->state = READY;
 
-    if (original_side == OCEANO_DER){
+    if (original_side == OCEANO_DER)
+    {
         enqueue_thread(thread, queue_right);
     }
 
-    else if (original_side == OCEANO_IZQ){
+    else if (original_side == OCEANO_IZQ)
+    {
         enqueue_thread(thread, queue_left);
     }
 
@@ -68,12 +72,9 @@ int CEthread_create(CEthread *thread, int original_side, int priority, int speed
 void CEthread_execute(CEthread *thread)
 {
 
-    if (thread->state == READY)
-    {
-        thread->state = RUNNING; // Set the state to RUNNING
-        printf("Running ID %d\n", thread->thread_id);
-        thread->thread_function(thread->arg); // Execute the thread function
-    }
+    thread->state = RUNNING; // Set the state to RUNNING
+    printf("Running ID %d\n", thread->thread_id);
+    thread->thread_function(thread->arg); // Execute the thread function
 }
 
 /**

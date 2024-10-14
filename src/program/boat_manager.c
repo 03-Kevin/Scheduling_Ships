@@ -60,7 +60,7 @@ void initialize_boats_right(int queue_quantity)
     printf("Boat list initialized with capacity for %d boats.\n", queue_quantity);
 }
 
-int quantum = 4;    
+int quantum = 4;
 
 // Cross channel function: locks the canal mutex and starts the crossing
 // case de 3 casos: 1. no apropiativo - 2. rr - 3. tiempo real (revisar primero de la lista)
@@ -72,8 +72,7 @@ void cross_channel(void *arg)
     CEmutex_lock(&canal_mutex);
     printf("Barco %d ha bloqueado el canal. Empieza a cruzar con tiempo estimado: %d segundos.\n", barco->thread_id, barco->burst_time);
 
-
-     // Diferenciar el comportamiento según el tipo de calendarización
+    // Diferenciar el comportamiento según el tipo de calendarización
     if (scheduling_type == 3) // Round Robin
     {
         // Round Robin: usar el quantum
@@ -98,13 +97,17 @@ void cross_channel(void *arg)
         if (barco->burst_time > 0)
         {
             printf("Barco %d no ha terminado de cruzar. Reprogramando...\n", barco->thread_id);
-            if (barco->original_side == OCEANO_IZQ){
+            if (barco->original_side == OCEANO_IZQ)
+            {
                 barco->arrival_time = arrival_counter_left++;
-                enqueue_thread(barco, queue_left); // Lo volvemos a agregar al final de la cola 
+                barco->state = READY;
+                enqueue_thread(barco, queue_left); // Lo volvemos a agregar al final de la cola
             }
-            else{
+            else
+            {
                 barco->arrival_time = arrival_counter_right++;
-                enqueue_thread(barco, queue_right); // Lo volvemos a agregar al final de la cola 
+                barco->state = READY;
+                enqueue_thread(barco, queue_right); // Lo volvemos a agregar al final de la cola
             }
         }
         else
@@ -114,8 +117,9 @@ void cross_channel(void *arg)
     }
     else if (scheduling_type == 4) // SJF con interrupciones (preemptive)
     {
-        if (barco->original_side == OCEANO_IZQ){
-             // SJF preemptive: verificar constantemente si hay un barco con menor burst_time
+        if (barco->original_side == OCEANO_IZQ)
+        {
+            // SJF preemptive: verificar constantemente si hay un barco con menor burst_time
             while (barco->burst_time > 0)
             {
                 // Antes de disminuir el burst_time, verifica si hay un barco en la cola con un burst_time menor.
@@ -128,9 +132,10 @@ void cross_channel(void *arg)
                     {
                         printf("-----------\n");
                         printf("Intercambiando barco %d (tiempo restante %d) con barco %d (tiempo restante %d).\n",
-                            barco->thread_id, barco->burst_time, first_in_queue->thread->thread_id, first_in_queue->thread->burst_time);
+                               barco->thread_id, barco->burst_time, first_in_queue->thread->thread_id, first_in_queue->thread->burst_time);
                         printf("-----------\n");
                         // Encola el barco actual para que espere su turno
+                        barco->state = READY;
                         enqueue_thread(barco, queue_left);
 
                         // Dequeue el barco con menor burst_time y lo asigna como el que está ejecutándose
@@ -151,9 +156,9 @@ void cross_channel(void *arg)
             }
         }
 
-        else if(barco->original_side == OCEANO_DER)
+        else if (barco->original_side == OCEANO_DER)
         {
-             // SJF preemptive: verificar constantemente si hay un barco con menor burst_time
+            // SJF preemptive: verificar constantemente si hay un barco con menor burst_time
             while (barco->burst_time > 0)
             {
                 // Antes de disminuir el burst_time, verifica si hay un barco en la cola con un burst_time menor.
@@ -166,9 +171,10 @@ void cross_channel(void *arg)
                     {
                         printf("-----------\n");
                         printf("Intercambiando barco %d (tiempo restante %d) con barco %d (tiempo restante %d).\n",
-                            barco->thread_id, barco->burst_time, first_in_queue->thread->thread_id, first_in_queue->thread->burst_time);
+                               barco->thread_id, barco->burst_time, first_in_queue->thread->thread_id, first_in_queue->thread->burst_time);
                         printf("-----------\n");
                         // Encola el barco actual para que espere su turno
+                        barco->state = READY;
                         enqueue_thread(barco, queue_right);
 
                         // Dequeue el barco con menor burst_time y lo asigna como el que está ejecutándose
@@ -407,7 +413,7 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
 {
     // Seed random number generator
     srand(time(NULL));
-    
+
     while (1)
     {
         // Check for key presses to add new boats
@@ -417,7 +423,8 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
             create_boat(key, boat_quantity);
         }
 
-        if (flow_control_method == 1){ //Modo EQUIDAD
+        if (flow_control_method == 1)
+        { // Modo EQUIDAD
             int contador = 0;
             int flag = 0;
             printf("-----Left Queue-----\n");
@@ -427,10 +434,13 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
             printf("-----------\n");
             while (queue_left->count > 0 || queue_right->count > 0)
             {
-                if (flag == 0){
-                     // Dequeue and execute the first thread
-                    if (contador < w){
-                        if (queue_left-> count > 0){
+                if (flag == 0)
+                {
+                    // Dequeue and execute the first thread
+                    if (contador < w)
+                    {
+                        if (queue_left->count > 0)
+                        {
                             CEthread *thread = dequeue_thread(queue_left); // Dequeue the first thread
                             if (thread != NULL)
                             {                             // Check if the thread is valid
@@ -446,25 +456,28 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                                 printf("-----------\n");
                             }
                         }
-                        else{
+                        else
+                        {
                             contador++;
                         }
-                        
                     }
-                    else{
+                    else
+                    {
                         contador = 0;
                         flag = 1;
                     }
-                    
                 }
-                else{
-                    if (contador < w){
-                        if(queue_right->count > 0){
+                else
+                {
+                    if (contador < w)
+                    {
+                        if (queue_right->count > 0)
+                        {
                             CEthread *thread = dequeue_thread(queue_right); // Dequeue the first thread
                             if (thread != NULL)
                             {                             // Check if the thread is valid
                                 CEthread_execute(thread); // Execute the thread
-                                
+
                                 CEthread_end(thread);
                                 printf("-----Left Queue-----\n");
                                 print_ready_queue(queue_left);
@@ -474,16 +487,18 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                                 contador++;
                             }
                         }
-                        else{
+                        else
+                        {
                             contador++;
                         }
                     }
-                    else{
+                    else
+                    {
                         contador = 0;
                         flag = 0;
                     }
                 }
-                
+
                 // Allow some time for new boats to be added
                 usleep(100000); // 100 milliseconds
 
@@ -496,7 +511,8 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
             }
         }
 
-        else if (flow_control_method == 2){ //Modo LETRERO
+        else if (flow_control_method == 2)
+        { // Modo LETRERO
             int contador = 0;
             int flag = 0;
             printf("-----Left Queue-----\n");
@@ -507,20 +523,23 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
             while (queue_left->count > 0 || queue_right->count > 0)
             {
                 printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period - contador);
-                if (flag == 0){
-                     // Dequeue and execute the first thread
-                    if (contador < change_direction_period){
-                        if (queue_left-> count > 0){
+                if (flag == 0)
+                {
+                    // Dequeue and execute the first thread
+                    if (contador < change_direction_period)
+                    {
+                        if (queue_left->count > 0)
+                        {
                             CEthread *thread = dequeue_thread(queue_left); // Dequeue the first thread
                             if (thread != NULL)
-                            {   
+                            {
                                 contador += thread->burst_time;
                                 CEthread_execute(thread); // Execute the thread
-                                
+
                                 CEthread_end(thread);
-                                
+
                                 printf("tiempo transcurrido: %d\n", contador);
-                                printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period-contador);
+                                printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period - contador);
                                 printf("-----Left Queue-----\n");
                                 print_ready_queue(queue_left);
                                 printf("-----Right Queue-----\n");
@@ -528,27 +547,31 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                                 printf("-----------\n");
                             }
                         }
-                        else{
+                        else
+                        {
+                            sleep(1);
                             contador++;
                         }
-                        
                     }
-                    else{
+                    else
+                    {
                         contador = 0;
                         flag = 1;
                     }
-                    
                 }
-                else{
-                    if (contador < change_direction_period){
-                        if(queue_right->count > 0){
+                else
+                {
+                    if (contador < change_direction_period)
+                    {
+                        if (queue_right->count > 0)
+                        {
                             CEthread *thread = dequeue_thread(queue_right); // Dequeue the first thread
                             if (thread != NULL)
-                            {           // Check if the thread is valid
+                            { // Check if the thread is valid
                                 contador += thread->burst_time;
-                                
+
                                 CEthread_execute(thread); // Execute the thread
-                                
+
                                 CEthread_end(thread);
                                 printf("tiempo transcurrido: %d\n", contador);
                                 printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period - contador);
@@ -559,16 +582,18 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                                 printf("-----------\n");
                             }
                         }
-                        else{
+                        else
+                        {
                             contador++;
                         }
                     }
-                    else{
+                    else
+                    {
                         contador = 0;
                         flag = 0;
                     }
                 }
-                
+
                 // Allow some time for new boats to be added
                 usleep(100000); // 100 milliseconds
 
@@ -581,8 +606,8 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
             }
         }
 
-
-        else if (flow_control_method == 3){ //Modo Tico
+        else if (flow_control_method == 3)
+        { // Modo Tico
             // Process boats from the queue if available
             while (queue_left->count > 0 || queue_right->count > 0)
             {
@@ -592,7 +617,8 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                 print_ready_queue(queue_right);
                 printf("-----------\n");
                 // Dequeue and execute the first thread
-                if (queue_left-> count > 0){
+                if (queue_left->count > 0)
+                {
                     CEthread *thread = dequeue_thread(queue_left); // Dequeue the first thread
                     if (thread != NULL)
                     {                             // Check if the thread is valid
@@ -601,7 +627,8 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                         CEthread_end(thread);
                     }
                 }
-                if(queue_right->count > 0){
+                if (queue_right->count > 0)
+                {
                     CEthread *thread = dequeue_thread(queue_right); // Dequeue the first thread
                     if (thread != NULL)
                     {                             // Check if the thread is valid
@@ -610,7 +637,7 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                         CEthread_end(thread);
                     }
                 }
-               
+
                 // Allow some time for new boats to be added
                 usleep(100000); // 100 milliseconds
 
@@ -623,10 +650,9 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
             }
         }
 
-        else if (flow_control_method == 2) {
-            
+        else if (flow_control_method == 2)
+        {
         }
-       
 
         // Allow some time to process other events before checking the queue again
         usleep(100000); // 100 milliseconds
