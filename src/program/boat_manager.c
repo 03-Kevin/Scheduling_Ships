@@ -13,6 +13,10 @@
 int boat_count = 0;    // Current number of boats
 int boat_quantity = 0; // Maximum number of boats
 int canal_length = 0;  // Default initialization
+int serial_port = -1;
+
+int left_quantity = 0;
+int right_quantity = 0;
 CEthread *boat_queue_left = NULL;
 CEthread *boat_queue_right = NULL;
 int contadorLetrero = 0;
@@ -68,6 +72,7 @@ int quantum = 3;
 void cross_channel(void *arg)
 {
     CEthread *barco = (CEthread *)arg;
+    delete_led(barco->original_side);
 
     // Lock the canal mutex before crossing
     CEmutex_lock(&canal_mutex);
@@ -84,13 +89,10 @@ void cross_channel(void *arg)
             sleep(1);            // Simulate crossing for 1 second
             barco->burst_time--; // Decrement burst time
             contadorLetrero++;
-            int key = kbhit();
-            if (key)
-            {
-                create_boat(key, boat_quantity);
-            }
+            led_manager();
             printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
-
+            crossing_led();
+            
             if (barco->burst_time == 0)
             {
                 break;
@@ -116,6 +118,7 @@ void cross_channel(void *arg)
         else
         {
             printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
+            turn_off_crossing_led();
         }
     }
     else if (scheduling_type == 4) // SJF con interrupciones (preemptive)
@@ -157,6 +160,8 @@ void cross_channel(void *arg)
                     create_boat(key, boat_quantity);
                 }
                 printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
+                crossing_led();
+                led_manager();
             }
         }
 
@@ -185,18 +190,17 @@ void cross_channel(void *arg)
                         barco = dequeue_thread(queue_right);
 
                         printf("Barco %d ahora está cruzando el canal con tiempo restante: %d segundos.\n", barco->thread_id, barco->burst_time);
+
                     }
                 }
 
                 sleep(1);            // Simulate crossing for 1 second
                 barco->burst_time--; // Decrement burst time
                 contadorLetrero++;
-                int key = kbhit();
-                if (key)
-                {
-                    create_boat(key, boat_quantity);
-                }
+
                 printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
+                crossing_led();
+                led_manager();
             }
         }
         printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
@@ -210,16 +214,14 @@ void cross_channel(void *arg)
             sleep(1);            // Simulate crossing for 1 second
             barco->burst_time--; // Decrement burst time
             contadorLetrero++;
-            int key = kbhit();
-            if (key)
-            {
-                create_boat(key, boat_quantity);
-            }
+            crossing_led();
+            led_manager();
             printf("Barco %d tiene %d segundos restantes para cruzar.\n", barco->thread_id, barco->burst_time);
         }
     }
 
     printf("Barco %d ha cruzado el canal.\n", barco->thread_id);
+    turn_off_crossing_led();
 
     // Unlock the canal mutex after crossing
     CEmutex_unlock(&canal_mutex);
@@ -231,6 +233,11 @@ void add_boats_from_menu(int normal_left, int fishing_left, int patrol_left,
 {
     int total_to_add_left = normal_left + fishing_left + patrol_left;
     int total_to_add_right = normal_right + fishing_right + patrol_right;
+
+    left_quantity = total_to_add_left;
+    right_quantity = total_to_add_right;
+
+    //carga_arduino(total_to_add_left,total_to_add_right);
 
     // Check if adding the boats would exceed the total capacity
     if (boat_count + total_to_add_left + total_to_add_right > queue_quantity)
@@ -408,12 +415,131 @@ void cleanup_boats()
     }
 }
 
+
+///////////// ARDUINO ////////////////
+
+
+// Function to open and configure the serial port
+void arduino_init() {
+    serial_port = open("/dev/ttyUSB0", O_RDWR);
+    
+    if (serial_port < 0) {
+        printf("Error al abrir el puerto serie.\n");
+        return;
+    }
+
+    struct termios tty;
+    if (tcgetattr(serial_port, &tty) != 0) {
+        printf("Error configurando el puerto serie.\n");
+        close(serial_port);
+        serial_port = -1;
+        return;
+    }
+
+    cfsetispeed(&tty, B9600);
+    cfsetospeed(&tty, B9600);
+
+    tty.c_cflag |= (CLOCAL | CREAD); // Activar lectura y ajustar línea para que no cuelgue
+    tty.c_cflag &= ~PARENB;          // No paridad
+    tty.c_cflag &= ~CSTOPB;          // 1 bit de parada
+    tty.c_cflag &= ~CSIZE;           // Limpiar los bits de tamaño de datos
+    tty.c_cflag |= CS8;              // 8 bits de datos
+
+    tty.c_lflag &= ~ICANON;          // Modo no canónico
+    tty.c_lflag &= ~ECHO;            // No eco de los datos leídos
+    tty.c_lflag &= ~ECHOE;
+    tty.c_lflag &= ~ISIG;
+
+    tty.c_oflag &= ~OPOST; // Modo de salida bruta
+
+    // Aplicar configuraciones
+    tcsetattr(serial_port, TCSANOW, &tty);
+}
+
+void delete_led(int original_side) {
+
+    if(original_side == OCEANO_DER){
+        // Enviar el número '1' al Arduino
+        char signal = 'd';
+        write(serial_port, &signal, sizeof(signal));
+        printf("Se ha quitado barco del oceano DERECHO\n");
+    }
+
+    if(original_side == OCEANO_IZQ){
+        // Enviar el número '1' al Arduino
+        char signal = 'i';
+        write(serial_port, &signal, sizeof(signal));
+        printf("Se ha quitado barco del oceano IZQUIERDO\n");
+    }
+
+
+}
+
+void led_manager() {
+    int key = kbhit();
+    if(key){
+        write(serial_port, &key, 1);
+        printf("Tecla presionada para el Arduino");
+        create_boat(key, boat_quantity);
+    }
+}
+
+void crossing_led() {
+    if (serial_port == -1) {
+        printf("El puerto serial no está abierto.\n");
+        return;
+    }
+
+    char signal = 'c';
+    write(serial_port, &signal, sizeof(signal));
+}
+
+void turn_off_crossing_led(){
+    if (serial_port == -1) {
+        printf("El puerto serial no está abierto.\n");
+        return;
+    }
+
+    char signal = 'o';
+    write(serial_port, &signal, sizeof(signal));
+
+}
+
+void carga_arduino_right(int total_right){
+    printf("El total de barcos a la derecha es: %d\n", total_right);
+    char right_quantity[30];
+
+    // Enviar la cantidad de arcos a la derecha
+    sprintf(right_quantity, "R%d\n", total_right);
+    printf("CANTIDAD DE BARCOS ENVIADOS: %s\n", right_quantity);
+    usleep(500000);  // Ajustar si es necesario darle más tiempo al Arduino
+    write(serial_port, right_quantity, strlen(right_quantity));  // Sin & aquí
+}
+
+void carga_arduino_left(int total_left) {
+    printf("El total de barcos a la izquierda es: %d\n", total_left);
+    
+    // Enviar la cantidad de barcos a la izquierda
+    char left_quantity[30];
+
+    sprintf(left_quantity, "L%d\n", total_left);
+    printf("CANTIDAD DE BARCOS ENVIADOS: %s\n", left_quantity);
+    usleep(500000); 
+    write(serial_port, left_quantity, strlen(left_quantity));  // Sin &
+}
+
+
 // Main program loop that handles the test
 void start_threads(int flow_control_method, int w, int change_direction_period)
 {
+    arduino_init();
     // Seed random number generator
     srand(time(NULL));
-
+    usleep(2000000);
+    carga_arduino_right(right_quantity);
+    usleep(2000000);
+    carga_arduino_left(left_quantity);
+   
     while (1)
     {
         // Check for key presses to add new boats
@@ -425,6 +551,9 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
 
         if (flow_control_method == 1)
         { // Modo EQUIDAD
+            char signal = '7';
+            write(serial_port, &signal, sizeof(signal));
+
             int contador = 0;
             int flag = 0;
             printf("-----Left Queue-----\n");
@@ -524,6 +653,8 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
 
         else if (flow_control_method == 2)
         { // Modo LETRERO
+            char signal = '8';
+            write(serial_port, &signal, sizeof(signal));
             int flag = 0;
             printf("-----Left Queue-----\n");
             print_ready_queue(queue_left);
@@ -630,6 +761,8 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
         else if (flow_control_method == 3)
         { // Modo Tico
             // Process boats from the queue if available
+            char signal = '9';
+            write(serial_port, &signal, sizeof(signal));
             while (queue_left->count > 0 || queue_right->count > 0)
             {
                 printf("-----Left Queue-----\n");
