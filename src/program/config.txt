@@ -1,4 +1,4 @@
-flow_control_method: 3
+flow_control_method: 2
 length: 100
 queue_quantity: 100
 direction_change_period: 15

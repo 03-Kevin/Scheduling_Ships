@@ -15,6 +15,7 @@ int boat_quantity = 0; // Maximum number of boats
 int canal_length = 0;  // Default initialization
 CEthread *boat_queue_left = NULL;
 CEthread *boat_queue_right = NULL;
+int contadorLetrero = 0;
 
 // Boat types with their respective speeds and priorities
 BoatType boat_types[] = {
@@ -81,6 +82,7 @@ void cross_channel(void *arg)
         {
             sleep(1);            // Simulate crossing for 1 second
             barco->burst_time--; // Decrement burst time
+            contadorLetrero++;
             int key = kbhit();
             if (key)
             {
@@ -147,6 +149,7 @@ void cross_channel(void *arg)
 
                 sleep(1);            // Simulate crossing for 1 second
                 barco->burst_time--; // Decrement burst time
+                contadorLetrero++;
                 int key = kbhit();
                 if (key)
                 {
@@ -186,6 +189,7 @@ void cross_channel(void *arg)
 
                 sleep(1);            // Simulate crossing for 1 second
                 barco->burst_time--; // Decrement burst time
+                contadorLetrero++;
                 int key = kbhit();
                 if (key)
                 {
@@ -204,6 +208,7 @@ void cross_channel(void *arg)
         {
             sleep(1);            // Simulate crossing for 1 second
             barco->burst_time--; // Decrement burst time
+            contadorLetrero++;
             int key = kbhit();
             if (key)
             {
@@ -511,9 +516,7 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
             }
         }
 
-        else if (flow_control_method == 2)
-        { // Modo LETRERO
-            int contador = 0;
+        else if (flow_control_method == 2){ //Modo LETRERO
             int flag = 0;
             printf("-----Left Queue-----\n");
             print_ready_queue(queue_left);
@@ -522,24 +525,20 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
             printf("-----------\n");
             while (queue_left->count > 0 || queue_right->count > 0)
             {
-                printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period - contador);
-                if (flag == 0)
-                {
-                    // Dequeue and execute the first thread
-                    if (contador < change_direction_period)
-                    {
-                        if (queue_left->count > 0)
-                        {
+                printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period - contadorLetrero);
+                if (flag == 0){
+                     // Dequeue and execute the first thread
+                    if (contadorLetrero < change_direction_period){
+                        if (queue_left-> count > 0){
                             CEthread *thread = dequeue_thread(queue_left); // Dequeue the first thread
                             if (thread != NULL)
-                            {
-                                contador += thread->burst_time;
+                            {   
                                 CEthread_execute(thread); // Execute the thread
 
                                 CEthread_end(thread);
-
-                                printf("tiempo transcurrido: %d\n", contador);
-                                printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period - contador);
+                                
+                                printf("tiempo transcurrido: %d\n", contadorLetrero);
+                                printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period-contadorLetrero);
                                 printf("-----Left Queue-----\n");
                                 print_ready_queue(queue_left);
                                 printf("-----Right Queue-----\n");
@@ -547,34 +546,28 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                                 printf("-----------\n");
                             }
                         }
-                        else
-                        {
-                            sleep(1);
-                            contador++;
+                        else{
+                            contadorLetrero++;
                         }
+        
                     }
-                    else
-                    {
-                        contador = 0;
+                    else{
+                        contadorLetrero = 0;
                         flag = 1;
                     }
                 }
-                else
-                {
-                    if (contador < change_direction_period)
-                    {
-                        if (queue_right->count > 0)
-                        {
+                else{
+                    if (contadorLetrero < change_direction_period){
+                        if(queue_right->count > 0){
                             CEthread *thread = dequeue_thread(queue_right); // Dequeue the first thread
                             if (thread != NULL)
-                            { // Check if the thread is valid
-                                contador += thread->burst_time;
-
+                            {           // Check if the thread is valid
+                                
                                 CEthread_execute(thread); // Execute the thread
 
                                 CEthread_end(thread);
-                                printf("tiempo transcurrido: %d\n", contador);
-                                printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period - contador);
+                                printf("tiempo transcurrido: %d\n", contadorLetrero);
+                                printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period - contadorLetrero);
                                 printf("-----Left Queue-----\n");
                                 print_ready_queue(queue_left);
                                 printf("-----Right Queue-----\n");
@@ -582,14 +575,13 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                                 printf("-----------\n");
                             }
                         }
-                        else
-                        {
-                            contador++;
+                        else{
+                            contadorLetrero++;
                         }
+                        
                     }
-                    else
-                    {
-                        contador = 0;
+                    else{
+                        contadorLetrero = 0;
                         flag = 0;
                     }
                 }
