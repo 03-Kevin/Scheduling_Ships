@@ -519,9 +519,6 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                     }
                 }
 
-                // Allow some time for new boats to be added
-                usleep(100000); // 100 milliseconds
-
                 // Check for key presses again after executing a thread
                 key = kbhit();
                 if (key)
