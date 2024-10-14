@@ -3,7 +3,7 @@
 El objetivo es crear una biblioteca de hilos, con el fin de ejecutar distintas tareas de manera simultánea y calendarizarlas según se requiera.
 
 ## Paper del proyecto
-link-->  https://www.overleaf.com/7719443519xdjnpgtznjxk#28126c  
+link--> https://www.overleaf.com/read/xwccjvrffbrf#6e4f60   
 
 ## Tabla de Contenidos
 
