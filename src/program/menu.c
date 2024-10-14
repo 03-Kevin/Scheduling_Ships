@@ -112,6 +112,7 @@ void checkMissingValues(Config config)
             printf("- w is missing\n");
         if (config.scheduling_method == -1)
             printf("- scheduling_method is missing\n");
+        exit(0);
     }
     else
     {
@@ -203,7 +204,7 @@ void preset_load()
     {
         printf("Valores confirmados.\n");
 
-                add_boats_from_menu(global_normal_left, global_fishing_left, global_patrols_left,
+        add_boats_from_menu(global_normal_left, global_fishing_left, global_patrols_left,
                             global_normal_right, global_fishing_right, global_patrols_right,
                             canal_length, config.queue_quantity);
 
