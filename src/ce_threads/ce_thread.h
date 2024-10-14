@@ -12,6 +12,7 @@
 
 extern int arrival_counter_left;
 extern int arrival_counter_right;
+extern int join_flag;
 
 // Estructura para representar un hilo (barco)
 typedef struct

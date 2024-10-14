@@ -17,6 +17,7 @@
 static int next_thread_id = 0;
 int arrival_counter_left = 0;
 int arrival_counter_right = 0;
+int join_flag = 0;
 
 /**
  * @brief CEthread_create: Crea un nuevo hilo (barco) y lo pone en state READY.
@@ -98,11 +99,11 @@ void CEthread_end(CEthread *thread)
  */
 void CEthread_join(CEthread *thread)
 {
-    // Espera activa hasta que el hilo (barco) complete su ejecución
-    while (thread->state != DONE)
-    {
-        usleep(1000); // Simulación de espera
-    }
+    join_flag = 1;
+    thread->state = RUNNING; // Set the state to RUNNING
+    printf("Running ID %d\n", thread->thread_id);
+    thread->thread_function(thread->arg); // Execute the thread function
+    join_flag = 0;
 }
 
 /**

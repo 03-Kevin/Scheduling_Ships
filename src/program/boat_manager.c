@@ -61,7 +61,7 @@ void initialize_boats_right(int queue_quantity)
     printf("Boat list initialized with capacity for %d boats.\n", queue_quantity);
 }
 
-int quantum = 4;
+int quantum = 3;
 
 // Cross channel function: locks the canal mutex and starts the crossing
 // case de 3 casos: 1. no apropiativo - 2. rr - 3. tiempo real (revisar primero de la lista)
@@ -77,7 +77,8 @@ void cross_channel(void *arg)
     if (scheduling_type == 3) // Round Robin
     {
         // Round Robin: usar el quantum
-        int time_to_cross = (barco->burst_time < quantum) ? barco->burst_time : quantum;
+        int time_to_cross = (join_flag == 1) ? barco->burst_time : ((barco->burst_time < quantum) ? barco->burst_time : quantum);
+
         for (int i = 0; i < time_to_cross; i++)
         {
             sleep(1);            // Simulate crossing for 1 second
@@ -448,8 +449,15 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                         {
                             CEthread *thread = dequeue_thread(queue_left); // Dequeue the first thread
                             if (thread != NULL)
-                            {                             // Check if the thread is valid
-                                CEthread_execute(thread); // Execute the thread
+                            { // Check if the thread is valid
+                                if (thread->priority == 1)
+                                {
+                                    CEthread_join(thread); // Use CEthread_join for priority 1
+                                }
+                                else
+                                {
+                                    CEthread_execute(thread); // Execute the thread
+                                }
 
                                 CEthread_end(thread);
                                 contador++;
@@ -480,8 +488,15 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                         {
                             CEthread *thread = dequeue_thread(queue_right); // Dequeue the first thread
                             if (thread != NULL)
-                            {                             // Check if the thread is valid
-                                CEthread_execute(thread); // Execute the thread
+                            { // Check if the thread is valid
+                                if (thread->priority == 1)
+                                {
+                                    CEthread_join(thread); // Use CEthread_join for priority 1
+                                }
+                                else
+                                {
+                                    CEthread_execute(thread); // Execute the thread
+                                }
 
                                 CEthread_end(thread);
                                 printf("-----Left Queue-----\n");
@@ -516,7 +531,8 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
             }
         }
 
-        else if (flow_control_method == 2){ //Modo LETRERO
+        else if (flow_control_method == 2)
+        { // Modo LETRERO
             int flag = 0;
             printf("-----Left Queue-----\n");
             print_ready_queue(queue_left);
@@ -526,19 +542,29 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
             while (queue_left->count > 0 || queue_right->count > 0)
             {
                 printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period - contadorLetrero);
-                if (flag == 0){
-                     // Dequeue and execute the first thread
-                    if (contadorLetrero < change_direction_period){
-                        if (queue_left-> count > 0){
+                if (flag == 0)
+                {
+                    // Dequeue and execute the first thread
+                    if (contadorLetrero < change_direction_period)
+                    {
+                        if (queue_left->count > 0)
+                        {
                             CEthread *thread = dequeue_thread(queue_left); // Dequeue the first thread
                             if (thread != NULL)
-                            {   
-                                CEthread_execute(thread); // Execute the thread
+                            {
+                                if (thread->priority == 1)
+                                {
+                                    CEthread_join(thread); // Use CEthread_join for priority 1
+                                }
+                                else
+                                {
+                                    CEthread_execute(thread); // Execute the thread
+                                }
 
                                 CEthread_end(thread);
-                                
+
                                 printf("tiempo transcurrido: %d\n", contadorLetrero);
-                                printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period-contadorLetrero);
+                                printf("tiempo restante antes de cambiar el letrero: %d\n", change_direction_period - contadorLetrero);
                                 printf("-----Left Queue-----\n");
                                 print_ready_queue(queue_left);
                                 printf("-----Right Queue-----\n");
@@ -546,24 +572,35 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                                 printf("-----------\n");
                             }
                         }
-                        else{
+                        else
+                        {
                             contadorLetrero++;
                         }
-        
                     }
-                    else{
+                    else
+                    {
                         contadorLetrero = 0;
                         flag = 1;
                     }
                 }
-                else{
-                    if (contadorLetrero < change_direction_period){
-                        if(queue_right->count > 0){
+                else
+                {
+                    if (contadorLetrero < change_direction_period)
+                    {
+                        if (queue_right->count > 0)
+                        {
                             CEthread *thread = dequeue_thread(queue_right); // Dequeue the first thread
                             if (thread != NULL)
-                            {           // Check if the thread is valid
-                                
-                                CEthread_execute(thread); // Execute the thread
+                            { // Check if the thread is valid
+
+                                if (thread->priority == 1)
+                                {
+                                    CEthread_join(thread); // Use CEthread_join for priority 1
+                                }
+                                else
+                                {
+                                    CEthread_execute(thread); // Execute the thread
+                                }
 
                                 CEthread_end(thread);
                                 printf("tiempo transcurrido: %d\n", contadorLetrero);
@@ -575,12 +612,13 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                                 printf("-----------\n");
                             }
                         }
-                        else{
+                        else
+                        {
                             contadorLetrero++;
                         }
-                        
                     }
-                    else{
+                    else
+                    {
                         contadorLetrero = 0;
                         flag = 0;
                     }
@@ -613,8 +651,15 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                 {
                     CEthread *thread = dequeue_thread(queue_left); // Dequeue the first thread
                     if (thread != NULL)
-                    {                             // Check if the thread is valid
-                        CEthread_execute(thread); // Execute the thread
+                    { // Check if the thread is valid
+                        if (thread->priority == 1)
+                        {
+                            CEthread_join(thread); // Use CEthread_join for priority 1
+                        }
+                        else
+                        {
+                            CEthread_execute(thread); // Execute the thread
+                        }
 
                         CEthread_end(thread);
                     }
@@ -623,8 +668,15 @@ void start_threads(int flow_control_method, int w, int change_direction_period)
                 {
                     CEthread *thread = dequeue_thread(queue_right); // Dequeue the first thread
                     if (thread != NULL)
-                    {                             // Check if the thread is valid
-                        CEthread_execute(thread); // Execute the thread
+                    { // Check if the thread is valid
+                        if (thread->priority == 1)
+                        {
+                            CEthread_join(thread); // Use CEthread_join for priority 1
+                        }
+                        else
+                        {
+                            CEthread_execute(thread); // Execute the thread
+                        }
 
                         CEthread_end(thread);
                     }
